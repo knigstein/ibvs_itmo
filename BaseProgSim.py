@@ -90,11 +90,14 @@ def main() -> None:
             elif fsm.phase in (
                 Phase.CALIBRATION_DESCEND,
                 Phase.CALIBRATION_ASCEND,
+                Phase.DESCENT_TO_GRASP,
+                Phase.LIFT_AFTER_GRASP,
+            ):
+                sim.physics_step_world_eef(v)
+            elif fsm.phase in (
                 Phase.IBVS_APPROACH,
                 Phase.FINAL_ALIGN,
                 Phase.GRASP_CLOSE,
-                Phase.DESCENT_TO_GRASP,
-                Phase.LIFT_AFTER_GRASP,
             ):
                 sim.physics_step_ibvs(v)
             else:

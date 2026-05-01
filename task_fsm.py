@@ -253,10 +253,7 @@ class PickPlaceFSM:
             return v_c * 0.2
 
         if self.phase == Phase.DESCENT_TO_GRASP:
-            if seg_ok:
-                Z = self._ibvs_Z(seg.corners, depth_m)
-                v_xy, _, _ = self.ibvs.step(seg.corners, Z)
-                v[:2] = 0.15 * v_xy[:2]
+            # Строгий вертикальный спуск: без XY-подруливания, чтобы траектория не изгибалась.
             v[2] = self._descent_sign * self._grasp_descent_speed
             self._grasp_move_remaining_m -= abs(v[2]) * max(dt, 1e-4)
             if sim.eef_cube_distance < self._grasp_dist or self._grasp_move_remaining_m <= 0.0:

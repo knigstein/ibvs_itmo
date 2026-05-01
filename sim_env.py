@@ -157,6 +157,13 @@ class MuJoCoArmSim:
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
+    def physics_step_world_eef(self, v_world: np.ndarray) -> None:
+        self._apply_gripper_ctrl()
+        v_world = np.asarray(v_world, dtype=float).reshape(6)
+        self.controller.run_vel_world(v_world, self.eef_site_id)
+        mujoco.mj_step(self.model, self.data)
+        self._update_telemetry()
+
     def physics_step_joint(self, q_des: np.ndarray) -> None:
         self._apply_gripper_ctrl()
         q_des = np.asarray(q_des, dtype=float).reshape(6)
