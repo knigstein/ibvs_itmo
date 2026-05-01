@@ -4,7 +4,7 @@
   </asset>
 
   <worldbody>
-    <body name="body_obj_cube" pos="0.5 0.5 0">
+    <body name="body_obj_cube" pos="0.3 -0.5 0">
       <freejoint/>
       <!-- Жёсткий box: solref/solimp как у «твёрдого» контакта MuJoCo, condim=6 для хвата, margin раньше включает контакт -->
       <geom

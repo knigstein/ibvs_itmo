@@ -4,8 +4,8 @@
   "final_align_error_scale": 0.85,
   "align_hold_steps": 8,
   "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
-  "move_j_duration_s": 4.0,
-  "max_ibvs_speed": 0.35,
+  "move_j_duration_s": 1.0,
+  "max_ibvs_speed": 1,
   "vision": {
     "hsv_lower": [5, 45, 35],
     "hsv_upper": [38, 255, 255],

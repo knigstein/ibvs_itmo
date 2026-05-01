@@ -46,6 +46,7 @@ Thumbs.db
 # Logs and local data
 *.log
 data/
+camera_feed/
 *.png~
 *.jpg~
 
