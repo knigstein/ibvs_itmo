@@ -14,7 +14,8 @@ import mujoco.viewer
 from ibvs import IBVS
 from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
-from vision import CubeSegmenter
+# from vision import CubeSegmenter
+from vision.yolo_detector import YOLOFeatureDetector as CubeSegmenter
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))

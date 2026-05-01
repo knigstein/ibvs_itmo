@@ -7,11 +7,14 @@
   "move_j_duration_s": 1.0,
   "max_ibvs_speed": 1,
   "vision": {
+    "weights_path": "yolov8n.pt",
+    "min_conf": 0.5,
+    "ema_alpha": 0.4,
+    
     "hsv_lower": [5, 45, 35],
     "hsv_upper": [38, 255, 255],
     "blur_ksize": 5,
     "morph_ksize": 5,
-    "min_area": 350,
-    "ema_alpha": 0.4
+    "min_area": 350
   }
 }
