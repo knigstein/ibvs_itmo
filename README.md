@@ -1,4 +1,4 @@
-```markdown
+
 # IBVS Control System - ITMO University
 
 This repository contains the implementation of an **Image-Based Visual Servoing (IBVS)** system. Developed as a team project, it provides a framework for controlling robotic manipulators using visual feedback, supporting both high-fidelity simulation and real-world hardware deployment.
