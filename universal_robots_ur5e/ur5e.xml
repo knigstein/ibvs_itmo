@@ -76,6 +76,10 @@
     <material class="d435i" name="IR_Rim"           rgba="0.799102 0.806952 0.799103 1"/>
     <material class="d435i" name="Metal_Casing"     rgba="1 1 1 1"/>
     <material class="d435i" name="RGB_Pupil"        rgba="0.087140 0.002866 0.009346 1"/>
+    <material name="gripper_2f85_metal" rgba="0.58 0.58 0.58 1"/>
+    <material name="gripper_2f85_silicone" rgba="0.1882 0.1882 0.1882 1"/>
+    <material name="gripper_2f85_gray" rgba="0.4627 0.4627 0.4627 1"/>
+    <material name="gripper_2f85_black" rgba="0.149 0.149 0.149 1"/>
 
     <!-- D435i meshes (in realsense/ subdirectory next to this file) -->
     <mesh name="d435i_0" file="d435i_0.obj"/>
@@ -89,6 +93,14 @@
     <mesh name="d435i_8" file="d435i_8.obj"/>
 
     <mesh name="tool" file="tool_hd.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_base_mount" file="robotiq_2f85/base_mount.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_base" file="robotiq_2f85/base.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_driver" file="robotiq_2f85/driver.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_coupler" file="robotiq_2f85/coupler.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_follower" file="robotiq_2f85/follower.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_pad" file="robotiq_2f85/pad.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_silicone_pad" file="robotiq_2f85/silicone_pad.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="gripper_2f85_spring_link" file="robotiq_2f85/spring_link.stl" scale="0.001 0.001 0.001"/>
 
     <mesh name="egp_base" content_type="model/obj" file="egp_base.obj"/>
     <mesh name="egp_trans_1" content_type="model/obj" file="egp_trans_1.obj"/>
@@ -152,7 +164,9 @@
                       <body name="tool" pos="0.0 0.0 0" >
                         <geom mesh="tool" class="visual" euler="0 1.5704 1.5704" pos= "0.0 0.10 0.0"/>
                         <geom mesh="tool" class="collision" euler="0 1.5704 1.5704" pos= "0.0 0.10 0"/>
-
+                        <body name="gripper_2f85_mount" pos="0.0 0.10 0.0" euler="-1.5704 0 0">
+                          <include file="2f85_component.xml"/>
+                        </body>
                           <body name="d435i" childclass="d435i"
                             pos="0 0.135 0.095"
                             euler="-1.5704 0 0 ">
@@ -185,27 +199,7 @@
                         </body><!-- d435i -->
                         
                       <site name="eef_site" pos="0.01 0.11 0.1" euler="-1.5704 0 0" group="3"/>
-                        <!-- <body name="gripper" pos= "-0.01 0.11 -0.01" euler="-1.57 0 0">
-                          <geom type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="egp_base"/>
-                          <body name="egp_trans_1" pos="-0.059 -0.016075 0.10975" quat="0.707107 0 0 -0.707107">
-                            <inertial pos="0.0016208 0.02782 0.004811" quat="0.81667 0.565482 0.101727 -0.0541519" mass="0.011095" diaginertia="3.60464e-06 3.10273e-06 8.01231e-07"/>
-                            <joint name="egp_prismatic_1" pos="0 0 0" axis="0 1 0" type="slide" range="-0.03 0.02" actuatorfrcrange="-300 300" damping="0.3" frictionloss="0.2"/>
-                            <geom pos="-0.016 0.027 -0.00893" quat="1 0 0 0" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="egp_trans_1"/>
-                              <body name="finger_1" pos= "-0.016 0.027 -0.00893" euler="0 0 0">
-                                <geom type="box" size="0.015 0.005 0.025" pos="0.00 0.015 0.05"
-                                  rgba="0 0.0 0 1" contype="1" conaffinity="1"/>
-                              </body>
-                          </body>
-                          <body name="egp_trans_2" pos="0.069 -0.016075 0.10975" quat="0.707107 0 0 -0.707107">
-                            <inertial pos="0.0016549 -0.037399 0.0049123" quat="0.816943 0.565095 0.101742 -0.0540342" mass="0.010866" diaginertia="3.59725e-06 3.09617e-06 7.99681e-07"/>
-                            <joint name="egp_prismatic_2" pos="0 0 0" axis="0 1 0" type="slide" range="-0.02 0.03" actuatorfrcrange="-300 300" damping="0.3" frictionloss="0.2"/>
-                            <geom pos="-0.016 -0.037 -0.00893" quat="1 0 0 0" type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="egp_trans_2"/>
-                              <body name="finger_2" pos= "-0.016 -0.037 -0.00893" euler="0 0 0">
-                              <geom type="box" size="0.015 0.005 0.025" pos="0.00 -0.015 0.05"
-                                rgba="0 0.0 0 1" contype="1" conaffinity="1"/>
-                              </body>
-                            </body>
-                          </body> -->
+
                         </body>
 
                     </body><!-- cam_mount_body -->
@@ -218,11 +212,28 @@
     </body>
   </worldbody>
 
-<!-- 
-   <contact>
-    <exclude body1="egp_trans_1"     body2="egp_trans_2"/>
-    
-  </contact> -->
+  <contact>
+    <exclude body1="gripper_2f85_base" body2="gripper_2f85_left_driver"/>
+    <exclude body1="gripper_2f85_base" body2="gripper_2f85_right_driver"/>
+    <exclude body1="gripper_2f85_base" body2="gripper_2f85_left_spring_link"/>
+    <exclude body1="gripper_2f85_base" body2="gripper_2f85_right_spring_link"/>
+    <exclude body1="gripper_2f85_right_coupler" body2="gripper_2f85_right_follower"/>
+    <exclude body1="gripper_2f85_left_coupler" body2="gripper_2f85_left_follower"/>
+  </contact>
+
+  <tendon>
+    <fixed name="gripper_2f85_split">
+      <joint joint="gripper_2f85_right_driver_joint" coef="0.5"/>
+      <joint joint="gripper_2f85_left_driver_joint" coef="0.5"/>
+    </fixed>
+  </tendon>
+
+  <equality>
+    <connect anchor="0 0 0" body1="gripper_2f85_right_follower" body2="gripper_2f85_right_coupler"/>
+    <connect anchor="0 0 0" body1="gripper_2f85_left_follower" body2="gripper_2f85_left_coupler"/>
+    <joint joint1="gripper_2f85_right_driver_joint" joint2="gripper_2f85_left_driver_joint"
+      polycoef="0 1 0 0 0"/>
+  </equality>
 
   <actuator>
     <motor name="shoulder_pan" joint="shoulder_pan_joint"/>
@@ -231,6 +242,9 @@
     <motor name="wrist_1" joint="wrist_1_joint"/>
     <motor name="wrist_2" joint="wrist_2_joint"/>
     <motor name="wrist_3" joint="wrist_3_joint"/>
+    <general name="gripper_2f85_fingers_actuator" tendon="gripper_2f85_split"
+      forcerange="-5 5" ctrlrange="0 255"
+      gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
     <!-- <general class="size1" name="shoulder_pan_vel"  joint="egp_prismatic_1" />
     <general class="size1" name="shoulder_lift_vel" joint="egp_prismatic_2" /> -->
   </actuator>

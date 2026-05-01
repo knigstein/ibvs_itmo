@@ -1,0 +1,25 @@
+<mujoco model="small_cube">
+  <asset>
+    <material name="cube_wood" rgba="0.55 0.38 0.22 1" specular="0.15" shininess="0.25"/>
+  </asset>
+
+  <worldbody>
+    <body name="body_obj_cube" pos="0.5 0.5 0">
+      <freejoint/>
+      <!-- Жёсткий box: solref/solimp как у «твёрдого» контакта MuJoCo, condim=6 для хвата, margin раньше включает контакт -->
+      <geom
+        name="small_cube_geom"
+        type="box"
+        size="0.04 0.04 0.04"
+        mass="0.1"
+        material="cube_wood"
+        friction="2.0 0.12 0.02"
+        condim="6"
+        solref="0.005 1"
+        solimp="0.999 0.9999 1e-4"
+        margin="0.001"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.015" name="bottom_site_cube"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 0.015" name="top_site_cube"/>
+    </body>
+  </worldbody>
+</mujoco>
