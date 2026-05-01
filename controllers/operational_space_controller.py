@@ -9,9 +9,10 @@ from .controller_utils import (
 )
 
 from .mujoco_utils import (
-    get_site_jac, 
-    get_fullM
+    get_site_jac,
+    get_fullM,
 )
+from .camera_kinematics import twist_camera_to_world
 
 from .transform_utils import (
     mat2quat,
@@ -177,6 +178,23 @@ class OperationalSpaceController(JointEffortController):
         # send the target effort to the joint effort controller
         super().run(u)
 
+    def run_vel_world(self, twist_world: np.ndarray, site_id: int) -> None:
+        """Желаемый винт в мире в точке site_id; mj_jacSite согласован с twist_world."""
+        target_speed = np.asarray(twist_world, dtype=float).reshape(6)
+        J = get_site_jac(self._model, self._data, site_id)
+        J = J[:, self._jnt_dof_ids]
+        M_full = get_fullM(self._model, self._data)
+        M = M_full[self._jnt_dof_ids, :][:, self._jnt_dof_ids]
+        dq = self._data.qvel[self._jnt_dof_ids].copy()
+        dq_des = np.linalg.pinv(J) @ target_speed
+        u = self._kv * M @ (dq_des - dq)
+        u += self._data.qfrc_bias[self._jnt_dof_ids]
+        super().run(u)
+
+    def run_vel_camera_ibvs(self, v_cam: np.ndarray, camera_site_id: int) -> None:
+        R = self._data.site_xmat[camera_site_id].reshape(3, 3)
+        twist_world = twist_camera_to_world(v_cam, R)
+        self.run_vel_world(twist_world, camera_site_id)
 
     def _scale_signal_vel_limited(self, u_task: np.ndarray) -> np.ndarray:
         """

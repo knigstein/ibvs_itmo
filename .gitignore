@@ -29,9 +29,12 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# IDE / editors
+# IDE / editors (не коммитить каталоги Cursor и вложенные клоны)
 .idea/
 .vscode/
+.cursor/
+cursor/
+**/.cursor/
 *.swp
 *.swo
 *~
@@ -48,6 +51,3 @@ data/
 
 # MuJoCo / sim dumps (uncomment if you export large traces)
 # *.mjcf.bak
-
-# Cursor / local tooling (optional)
-.cursor/

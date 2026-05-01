@@ -196,6 +196,8 @@
                                 euler="-3.14 0 0"
                                 fovy="54"
                                 resolution="640 480"/>
+                          <site name="real_sense_site" pos="-0.01 0 -0.0036" euler="-3.14 0 0"
+                                size="0.005" rgba="0 1 0 0.25" group="3"/>
                         </body><!-- d435i -->
                         
                       <site name="eef_site" pos="0.01 0.11 0.1" euler="-1.5704 0 0" group="3"/>
