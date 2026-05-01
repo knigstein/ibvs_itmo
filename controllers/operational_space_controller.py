@@ -55,15 +55,12 @@ class OperationalSpaceController(JointEffortController):
         self._scale_xyz = vmax_xyz / self._kp * self._kv
         self._scale_abg = vmax_abg / self._ko * self._kv
 
-    def run(self, target):
+    def _run_pose_for_site(self, target_pose: np.ndarray, site_id: int) -> None:
         # target pose is a 7D vector [x, y, z, qx, qy, qz, qw]
-        target_pose = target
-
-        # Get the Jacobian matrix for the end-effector.
         J = get_site_jac(
-            self._model, 
-            self._data, 
-            self._eef_id,
+            self._model,
+            self._data,
+            site_id,
         )
         J = J[:, self._jnt_dof_ids]
 
@@ -78,9 +75,9 @@ class OperationalSpaceController(JointEffortController):
         # Get the joint velocities for the controlled DOF.
         dq = self._data.qvel[self._jnt_dof_ids].copy()
 
-        # Get the end-effector position, orientation matrix, and twist (spatial velocity).
-        ee_pos = self._data.site_xpos[self._eef_id]
-        ee_quat = mat2quat(self._data.site_xmat[self._eef_id].reshape(3, 3))
+        # Current site pose.
+        ee_pos = self._data.site_xpos[site_id]
+        ee_quat = mat2quat(self._data.site_xmat[site_id].reshape(3, 3))
         ee_pose = np.concatenate([ee_pos, ee_quat])
 
         # Calculate the pose error (difference between the target and current pose).
@@ -104,8 +101,13 @@ class OperationalSpaceController(JointEffortController):
         # Add gravity compensation to the target effort
         u += self._data.qfrc_bias[self._jnt_dof_ids]
 
-        # send the target effort to the joint effort controller
         super().run(u)
+
+    def run(self, target):
+        self._run_pose_for_site(np.asarray(target, dtype=float).reshape(7), self._eef_id)
+
+    def run_pose_world(self, target_pose: np.ndarray, site_id: int) -> None:
+        self._run_pose_for_site(np.asarray(target_pose, dtype=float).reshape(7), int(site_id))
 
     def run_vel(self, target, rot):
 

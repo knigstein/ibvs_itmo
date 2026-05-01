@@ -17,6 +17,7 @@
     "known_start_distance_m": 0.52,
     "probe_descent_m": 0.05,
     "probe_speed_mps": 0.03,
+    "lock_site": "camera",
     "descent_direction_sign": 1.0,
     "min_observed_delta_m": 0.005,
     "grasp_descent_m": 0.12,

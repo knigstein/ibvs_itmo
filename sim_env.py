@@ -43,6 +43,12 @@ class MuJoCoArmSim:
         ]
         self.eef_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "eef_site")
         self.cam_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "real_sense_site")
+        zc = cfg.get("z_calibration") or {}
+        lock_site_name = str(zc.get("lock_site", "camera")).lower()
+        if lock_site_name in ("camera", "cam", "real_sense", "realsense"):
+            self._z_lock_site_id = self.cam_site_id
+        else:
+            self._z_lock_site_id = self.eef_site_id
 
         grasp_site_name = str(cfg.get("grasp_site_for_distance", "gripper_2f85_pinch"))
         gs_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, grasp_site_name)
@@ -173,19 +179,20 @@ class MuJoCoArmSim:
 
     def physics_step_locked_vertical(self, vz_world: float, dt: float) -> None:
         """
-        Калибровочный режим: фиксируем X/Y + ориентацию EEF и меняем только Z.
+        Калибровочный режим: фиксируем X/Y + ориентацию выбранного site и меняем только Z.
+        По умолчанию lock_site='camera', чтобы калибровка шла относительно ArUco в кадре.
         """
         self._apply_gripper_ctrl()
         if self._z_lock_pose is None:
-            ee_pos = self.data.site_xpos[self.eef_site_id].copy()
-            ee_quat = mat2quat(self.data.site_xmat[self.eef_site_id].reshape(3, 3))
+            ee_pos = self.data.site_xpos[self._z_lock_site_id].copy()
+            ee_quat = mat2quat(self.data.site_xmat[self._z_lock_site_id].reshape(3, 3))
             self._z_lock_pose = np.concatenate([ee_pos, ee_quat])
             self._z_lock_offset = 0.0
 
         self._z_lock_offset += float(vz_world) * max(float(dt), 1e-6)
         target = self._z_lock_pose.copy()
         target[2] = self._z_lock_pose[2] + self._z_lock_offset
-        self.controller.run(target)
+        self.controller.run_pose_world(target, self._z_lock_site_id)
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
