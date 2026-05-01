@@ -7,6 +7,8 @@
   "move_j_duration_s": 1.0,
   "max_ibvs_speed": 1,
   "vision": {
+    "detector_type": "universal",
+    
     "weights_path": "yolov8n.pt",
     "min_conf": 0.5,
     "ema_alpha": 0.4,
@@ -15,6 +17,12 @@
     "hsv_upper": [38, 255, 255],
     "blur_ksize": 5,
     "morph_ksize": 5,
-    "min_area": 350
+    "min_area": 350,
+    
+    "strategy": "real",
+    "canny_t1": 50,
+    "canny_t2": 150,
+    "morph_kernel": 31
   }
 }
+

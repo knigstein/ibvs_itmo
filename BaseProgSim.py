@@ -15,7 +15,8 @@ from ibvs import IBVS
 from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
 # from vision import CubeSegmenter
-from vision.yolo_detector import YOLOFeatureDetector as CubeSegmenter
+# from vision.yolo_detector import YOLOFeatureDetector as CubeSegmenter
+from vision import create_detector
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +31,9 @@ def main() -> None:
     cam_cfg = load_camera_config()
     sim = MuJoCoArmSim(model_path=os.path.join(model_dir, "IBVS_Scene.xml"))
     ibvs = IBVS(cam_cfg)
-    segmenter = CubeSegmenter(robot_cfg.get("vision", {}))
+    
+    detector_type = robot_cfg.get("vision", {}).get("detector_type", "universal")
+    segmenter = create_detector(detector_type, robot_cfg.get("vision", {}))
     fsm = PickPlaceFSM(ibvs, segmenter, robot_cfg, on_phase=lambda p: print("FSM:", p.name))
     fsm.start()
 
