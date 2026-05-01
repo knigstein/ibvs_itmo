@@ -69,6 +69,43 @@ class RealSenseGrabber:
         self.pipeline.stop()
 
 
+def _rotvec_to_matrix(rotvec: np.ndarray) -> np.ndarray:
+    rv = np.asarray(rotvec, dtype=float).reshape(3)
+    theta = float(np.linalg.norm(rv))
+    if theta < 1e-12:
+        return np.eye(3, dtype=float)
+    k = rv / theta
+    kx, ky, kz = k
+    K = np.array(
+        [
+            [0.0, -kz, ky],
+            [kz, 0.0, -kx],
+            [-ky, kx, 0.0],
+        ],
+        dtype=float,
+    )
+    return np.eye(3, dtype=float) + np.sin(theta) * K + (1.0 - np.cos(theta)) * (K @ K)
+
+
+def _probe_axis_in_base(robot: "UrRtdeRobot", axis_tcp: np.ndarray) -> np.ndarray:
+    axis = np.asarray(axis_tcp, dtype=float).reshape(3)
+    n = float(np.linalg.norm(axis))
+    if n < 1e-9:
+        axis = np.array([0.0, 0.0, 1.0], dtype=float)
+    else:
+        axis = axis / n
+    try:
+        tcp_pose = np.asarray(robot.rtde_r.getActualTCPPose(), dtype=float).reshape(6)
+        R_base_tcp = _rotvec_to_matrix(tcp_pose[3:])
+        axis_base = R_base_tcp @ axis
+        nb = float(np.linalg.norm(axis_base))
+        if nb > 1e-9:
+            return axis_base / nb
+    except Exception:
+        pass
+    return axis
+
+
 def main():
     robot_cfg, cam_cfg = load_configs()
     if UrRtdeRobot is None:
@@ -101,6 +138,9 @@ def main():
     descent_sign = float(zc.get("descent_direction_sign", 1.0))
     if abs(descent_sign) < 1e-9:
         descent_sign = 1.0
+    calib_max_retries = max(0, int(zc.get("max_retries", 2)))
+    calib_retry_count = 0
+    axis_tcp = np.asarray(zc.get("lock_axis_local", [0.0, 0.0, 1.0]), dtype=float).reshape(3)
 
     class Mode(Enum):
         CALIBRATION_MARKER = auto()
@@ -113,6 +153,22 @@ def main():
     mode = Mode.CALIBRATION_MARKER if aruco_ranging.enabled else Mode.IBVS
     calib_remaining = 0.0
     grasp_remaining = 0.0
+
+    def _finalize_calibration() -> None:
+        nonlocal mode, z_default, calib_retry_count
+        ok = aruco_ranging.finalize_probe()
+        if ok and aruco_ranging.calibrated_start_distance_m is not None:
+            z_default = aruco_ranging.calibrated_start_distance_m + depth_off
+            calib_retry_count = 0
+            mode = Mode.IBVS
+            return
+        calib_retry_count += 1
+        print("Z-calibration retry", calib_retry_count, "reason:", aruco_ranging.last_probe_reason)
+        if calib_retry_count <= calib_max_retries:
+            mode = Mode.CALIBRATION_MARKER
+            return
+        z_default = aruco_ranging.known_start_distance_m + depth_off
+        mode = Mode.IBVS
 
     def _optional_gripper_close() -> None:
         if hasattr(robot, "set_gripper_closed"):
@@ -136,10 +192,7 @@ def main():
                     calib_remaining = aruco_ranging.probe_descent_m
                     z_default = aruco_ranging.known_start_distance_m + depth_off
                     if calib_remaining <= 1e-6 or probe_speed <= 1e-6:
-                        aruco_ranging.finalize_probe()
-                        if aruco_ranging.calibrated_start_distance_m is not None:
-                            z_default = aruco_ranging.calibrated_start_distance_m + depth_off
-                        mode = Mode.IBVS
+                        _finalize_calibration()
                     else:
                         mode = Mode.CALIBRATION_DESCEND
                 time.sleep(dt)
@@ -147,13 +200,14 @@ def main():
 
             if mode == Mode.CALIBRATION_DESCEND:
                 v_cmd = np.zeros(6, dtype=float)
-                v_cmd[2] = descent_sign * probe_speed
+                axis_base = _probe_axis_in_base(robot, axis_tcp)
+                v_cmd[:3] = descent_sign * probe_speed * axis_base
                 robot.speedL(v_cmd, acceleration=0.25)
-                calib_remaining -= abs(v_cmd[2]) * dt
+                if aruco.ok and aruco.distance_m is not None:
+                    aruco_ranging.capture_probe_bottom(aruco)
+                calib_remaining -= probe_speed * dt
                 if calib_remaining <= 0.0:
                     robot.stop()
-                    if aruco.ok and aruco.distance_m is not None:
-                        aruco_ranging.capture_probe_bottom(aruco)
                     mode = Mode.CALIBRATION_ASCEND
                     calib_remaining = aruco_ranging.probe_descent_m
                 time.sleep(dt)
@@ -161,15 +215,13 @@ def main():
 
             if mode == Mode.CALIBRATION_ASCEND:
                 v_cmd = np.zeros(6, dtype=float)
-                v_cmd[2] = -descent_sign * probe_speed
+                axis_base = _probe_axis_in_base(robot, axis_tcp)
+                v_cmd[:3] = -descent_sign * probe_speed * axis_base
                 robot.speedL(v_cmd, acceleration=0.25)
-                calib_remaining -= abs(v_cmd[2]) * dt
+                calib_remaining -= probe_speed * dt
                 if calib_remaining <= 0.0:
                     robot.stop()
-                    aruco_ranging.finalize_probe()
-                    if aruco_ranging.calibrated_start_distance_m is not None:
-                        z_default = aruco_ranging.calibrated_start_distance_m + depth_off
-                    mode = Mode.IBVS
+                    _finalize_calibration()
                 time.sleep(dt)
                 continue
 

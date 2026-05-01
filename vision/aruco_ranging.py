@@ -27,6 +27,9 @@ class ArucoMotionRanging:
         self.known_start_distance_m = float(cfg.get("known_start_distance_m", 0.50))
         self.probe_descent_m = max(0.0, float(cfg.get("probe_descent_m", 0.05)))
         self.min_observed_delta_m = float(cfg.get("min_observed_delta_m", 0.005))
+        self.require_bottom_for_probe_scale = bool(cfg.get("require_bottom_for_probe_scale", True))
+        self.min_depth_scale = float(cfg.get("min_depth_scale", 0.5))
+        self.max_depth_scale = float(cfg.get("max_depth_scale", 2.0))
 
         fx, fy = camera_cfg.get("focal_length", [600.0, 600.0])
         self._f_eff = 0.5 * (float(fx) + float(fy))
@@ -37,9 +40,11 @@ class ArucoMotionRanging:
         self._params = cv2.aruco.DetectorParameters()
 
         self._raw_top_z: Optional[float] = None
-        self._raw_bottom_z: Optional[float] = None
+        self._raw_bottom_samples: list[float] = []
         self.depth_scale: float = 1.0
         self.calibrated_start_distance_m: Optional[float] = None
+        self.last_probe_ok: bool = False
+        self.last_probe_reason: str = "not_started"
 
     @staticmethod
     def _perimeter_px(corners: np.ndarray) -> float:
@@ -77,31 +82,62 @@ class ArucoMotionRanging:
 
     def begin_probe(self, top_detection: ArucoDetection) -> None:
         self._raw_top_z = float(top_detection.distance_m) if top_detection.distance_m is not None else None
-        self._raw_bottom_z = None
+        self._raw_bottom_samples = []
         self.depth_scale = 1.0
         self.calibrated_start_distance_m = None
+        self.last_probe_ok = False
+        self.last_probe_reason = "probing"
 
     def capture_probe_bottom(self, bottom_detection: ArucoDetection) -> None:
         if bottom_detection.distance_m is None:
             return
-        self._raw_bottom_z = float(bottom_detection.distance_m)
+        self._raw_bottom_samples.append(float(bottom_detection.distance_m))
 
-    def finalize_probe(self) -> None:
+    def finalize_probe(self) -> bool:
         if self._raw_top_z is None:
             self.depth_scale = 1.0
             self.calibrated_start_distance_m = None
-            return
+            self.last_probe_ok = False
+            self.last_probe_reason = "no_top_detection"
+            return False
 
         scale_abs = self.known_start_distance_m / max(self._raw_top_z, 1e-9)
         scale_mbr = None
-        if self._raw_bottom_z is not None and self.probe_descent_m > 0.0:
-            observed = self._raw_top_z - self._raw_bottom_z
+        bottom_z = None
+        if self._raw_bottom_samples:
+            deltas = np.abs(np.asarray(self._raw_bottom_samples, dtype=float) - self._raw_top_z)
+            bottom_z = float(self._raw_bottom_samples[int(np.argmax(deltas))])
+
+        if bottom_z is not None and self.probe_descent_m > 0.0:
+            observed = abs(self._raw_top_z - bottom_z)
             if observed > self.min_observed_delta_m:
                 scale_mbr = self.probe_descent_m / observed
+            else:
+                self.last_probe_reason = "observed_delta_too_small"
+        elif self.require_bottom_for_probe_scale:
+            self.depth_scale = 1.0
+            self.calibrated_start_distance_m = None
+            self.last_probe_ok = False
+            self.last_probe_reason = "no_bottom_detection"
+            return False
 
         if scale_mbr is None:
             self.depth_scale = float(scale_abs)
         else:
             self.depth_scale = float(0.5 * (scale_abs + scale_mbr))
+
+        if not (self.min_depth_scale <= self.depth_scale <= self.max_depth_scale):
+            self.depth_scale = 1.0
+            self.calibrated_start_distance_m = None
+            self.last_probe_ok = False
+            self.last_probe_reason = "depth_scale_out_of_range"
+            return False
+
         self.calibrated_start_distance_m = float(self._raw_top_z * self.depth_scale)
+        self.last_probe_ok = True
+        if scale_mbr is None:
+            self.last_probe_reason = "fallback_abs_scale"
+        else:
+            self.last_probe_reason = "ok"
+        return True
 

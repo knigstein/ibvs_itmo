@@ -67,6 +67,8 @@ class PickPlaceFSM:
         if abs(self._descent_sign) < 1e-9:
             self._descent_sign = 1.0
         self._calib_move_remaining_m = 0.0
+        self._calib_max_retries = max(0, int(zc.get("max_retries", 2)))
+        self._calib_retry_count = 0
 
         self._grasp_descent_m = max(0.0, float(zc.get("grasp_descent_m", 0.12)))
         self._grasp_lift_m = max(0.0, float(zc.get("lift_after_grasp_m", self._grasp_descent_m)))
@@ -91,11 +93,13 @@ class PickPlaceFSM:
         self._search_hold_t = 0.0
         self._lost_streak = 0
         self._calib_move_remaining_m = 0.0
+        self._calib_retry_count = 0
         self._grasp_move_remaining_m = 0.0
         self.segmenter.reset_smoothing()
 
     def start(self) -> None:
         self.phase = Phase.CALIBRATION_MARKER if self._aruco_ranging.enabled else Phase.IBVS_APPROACH
+        self._calib_retry_count = 0
         self._lost_streak = 0
         self._emit(self.phase)
 
@@ -137,6 +141,31 @@ class PickPlaceFSM:
         self._q0 = sim.get_q()
         self._emit(Phase.TRANSPORT)
 
+    def _finish_calibration_probe(self) -> None:
+        ok = self._aruco_ranging.finalize_probe()
+        if ok and self._aruco_ranging.calibrated_start_distance_m is not None:
+            self._z_fallback = self._aruco_ranging.calibrated_start_distance_m + self._depth_offset
+            self._calib_retry_count = 0
+            self.phase = Phase.IBVS_APPROACH
+            self._emit(Phase.IBVS_APPROACH)
+            return
+
+        self._calib_retry_count += 1
+        print(
+            "Z-calibration retry",
+            self._calib_retry_count,
+            "reason:",
+            self._aruco_ranging.last_probe_reason,
+        )
+        if self._calib_retry_count <= self._calib_max_retries:
+            self.phase = Phase.CALIBRATION_MARKER
+            self._emit(Phase.CALIBRATION_MARKER)
+        else:
+            # После исчерпания попыток используем known distance как fallback, чтобы цикл не зависал.
+            self._z_fallback = self._aruco_ranging.known_start_distance_m + self._depth_offset
+            self.phase = Phase.IBVS_APPROACH
+            self._emit(Phase.IBVS_APPROACH)
+
     def step(
         self,
         sim: "MuJoCoArmSim",
@@ -159,11 +188,7 @@ class PickPlaceFSM:
                 self._calib_move_remaining_m = self._aruco_ranging.probe_descent_m
                 self._z_fallback = self._aruco_ranging.known_start_distance_m + self._depth_offset
                 if self._calib_move_remaining_m <= 1e-6 or self._calib_probe_speed <= 1e-6:
-                    self._aruco_ranging.finalize_probe()
-                    if self._aruco_ranging.calibrated_start_distance_m is not None:
-                        self._z_fallback = self._aruco_ranging.calibrated_start_distance_m + self._depth_offset
-                    self.phase = Phase.IBVS_APPROACH
-                    self._emit(Phase.IBVS_APPROACH)
+                    self._finish_calibration_probe()
                 else:
                     self.phase = Phase.CALIBRATION_DESCEND
                     self._emit(Phase.CALIBRATION_DESCEND)
@@ -171,10 +196,10 @@ class PickPlaceFSM:
 
         if self.phase == Phase.CALIBRATION_DESCEND:
             v[2] = self._descent_sign * self._calib_probe_speed
+            if aruco.ok and aruco.distance_m is not None:
+                self._aruco_ranging.capture_probe_bottom(aruco)
             self._calib_move_remaining_m -= abs(v[2]) * max(dt, 1e-4)
             if self._calib_move_remaining_m <= 0.0:
-                if aruco.ok and aruco.distance_m is not None:
-                    self._aruco_ranging.capture_probe_bottom(aruco)
                 self._calib_move_remaining_m = self._aruco_ranging.probe_descent_m
                 self.phase = Phase.CALIBRATION_ASCEND
                 self._emit(Phase.CALIBRATION_ASCEND)
@@ -184,11 +209,7 @@ class PickPlaceFSM:
             v[2] = -self._descent_sign * self._calib_probe_speed
             self._calib_move_remaining_m -= abs(v[2]) * max(dt, 1e-4)
             if self._calib_move_remaining_m <= 0.0:
-                self._aruco_ranging.finalize_probe()
-                if self._aruco_ranging.calibrated_start_distance_m is not None:
-                    self._z_fallback = self._aruco_ranging.calibrated_start_distance_m + self._depth_offset
-                self.phase = Phase.IBVS_APPROACH
-                self._emit(Phase.IBVS_APPROACH)
+                self._finish_calibration_probe()
             return v
 
         if self.phase == Phase.SEARCH:

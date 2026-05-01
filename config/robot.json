@@ -18,8 +18,13 @@
     "probe_descent_m": 0.05,
     "probe_speed_mps": 0.03,
     "lock_site": "camera",
+    "lock_axis_local": [0.0, 0.0, 1.0],
     "descent_direction_sign": 1.0,
     "min_observed_delta_m": 0.005,
+    "require_bottom_for_probe_scale": true,
+    "min_depth_scale": 0.5,
+    "max_depth_scale": 2.0,
+    "max_retries": 2,
     "grasp_descent_m": 0.12,
     "grasp_descent_speed_mps": 0.035,
     "lift_after_grasp_m": 0.12

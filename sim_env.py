@@ -106,6 +106,10 @@ class MuJoCoArmSim:
         self._apply_gripper_ctrl()
         self._z_lock_pose: Optional[np.ndarray] = None
         self._z_lock_offset: float = 0.0
+        axis_local = np.asarray(zc.get("lock_axis_local", [0.0, 0.0, 1.0]), dtype=float).reshape(3)
+        n = float(np.linalg.norm(axis_local))
+        self._z_lock_axis_local = axis_local / n if n > 1e-9 else np.array([0.0, 0.0, 1.0], dtype=float)
+        self._z_lock_axis_world: Optional[np.ndarray] = None
 
     def _apply_gripper_ctrl(self) -> None:
         if self._gripper_act_id < 0 or self.model.nu <= self._gripper_act_id:
@@ -176,22 +180,28 @@ class MuJoCoArmSim:
     def reset_z_axis_lock(self) -> None:
         self._z_lock_pose = None
         self._z_lock_offset = 0.0
+        self._z_lock_axis_world = None
 
     def physics_step_locked_vertical(self, vz_world: float, dt: float) -> None:
         """
-        Калибровочный режим: фиксируем X/Y + ориентацию выбранного site и меняем только Z.
-        По умолчанию lock_site='camera', чтобы калибровка шла относительно ArUco в кадре.
+        Калибровочный режим: фиксируем ориентацию выбранного site и двигаемся вдоль его локальной оси.
+        По умолчанию ось [0,0,1] сайта камеры, чтобы ход калибровки совпадал с оптической осью.
         """
         self._apply_gripper_ctrl()
         if self._z_lock_pose is None:
             ee_pos = self.data.site_xpos[self._z_lock_site_id].copy()
-            ee_quat = mat2quat(self.data.site_xmat[self._z_lock_site_id].reshape(3, 3))
+            ee_rot = self.data.site_xmat[self._z_lock_site_id].reshape(3, 3)
+            ee_quat = mat2quat(ee_rot)
             self._z_lock_pose = np.concatenate([ee_pos, ee_quat])
             self._z_lock_offset = 0.0
+            axis_world = ee_rot @ self._z_lock_axis_local
+            axis_n = float(np.linalg.norm(axis_world))
+            self._z_lock_axis_world = axis_world / axis_n if axis_n > 1e-9 else np.array([0.0, 0.0, 1.0], dtype=float)
 
         self._z_lock_offset += float(vz_world) * max(float(dt), 1e-6)
         target = self._z_lock_pose.copy()
-        target[2] = self._z_lock_pose[2] + self._z_lock_offset
+        axis = self._z_lock_axis_world if self._z_lock_axis_world is not None else np.array([0.0, 0.0, 1.0], dtype=float)
+        target[:3] = self._z_lock_pose[:3] + axis * self._z_lock_offset
         self.controller.run_pose_world(target, self._z_lock_site_id)
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
