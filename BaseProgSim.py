@@ -14,7 +14,8 @@ import mujoco.viewer
 from ibvs import IBVS
 from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
-from vision import CubeSegmenter
+# from vision import CubeSegmenter
+from vision.yolo_detector import YOLOFeatureDetector as CubeSegmenter
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 model_dir = os.path.join(script_dir, "universal_robots_ur5e")
