@@ -1,4 +1,4 @@
-"""Конечный автомат: IBVS-подход → выравнивание → захват (weld) → перенос (moveJ) → отпускание."""
+"""FSM: IBVS-подход → выравнивание → захват (weld) → перенос (интерполяция q) → отпускание."""
 from __future__ import annotations
 
 from enum import Enum, auto
@@ -64,7 +64,6 @@ class PickPlaceFSM:
             self.on_phase(p)
 
     def step(self, sim: "MuJoCoArmSim", img_bgr: np.ndarray) -> np.ndarray:
-        """Один такт логики: вернуть винт камеры (6,) для IBVS или нули; для TRANSPORT вызывать physics_step_joint снаружи."""
         seg = self.segmenter.detect(img_bgr)
         v = np.zeros(6, dtype=float)
 
@@ -111,16 +110,9 @@ class PickPlaceFSM:
                 self._emit(Phase.TRANSPORT)
             return v
 
-        if self.phase == Phase.TRANSPORT:
-            return v
-
-        if self.phase == Phase.RELEASE:
-            return v
-
         return v
 
     def joint_target_for_transport(self, sim: "MuJoCoArmSim", dt: float) -> Optional[np.ndarray]:
-        """Если фаза TRANSPORT — интерполяция к place_joint_q; иначе None."""
         if self.phase != Phase.TRANSPORT:
             return None
         if self._q0 is None:

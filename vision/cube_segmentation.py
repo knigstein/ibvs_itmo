@@ -1,8 +1,8 @@
-"""Сегментация куба по контрасту с фоном (HSV + морфология) → четыре угла minAreaRect."""
+"""Сегментация куба по контрасту (HSV + морфология) → четыре угла minAreaRect."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import cv2
 import numpy as np
@@ -11,16 +11,13 @@ import numpy as np
 @dataclass
 class CubeSegmentationResult:
     corners: Optional[np.ndarray]
-    """(4, 2) float углы в пикселях или None."""
     ok: bool
     meta: Dict[str, Any] = field(default_factory=dict)
 
 
 def _order_corners(pts: np.ndarray) -> np.ndarray:
-    """Упорядочить 4 точки: верхний-левый, верхний-правый, нижний-правый, нижний-левый. Упорядочивание по сумме координат."""
     pts = np.asarray(pts, dtype=np.float32).reshape(4, 2)
     s = pts.sum(axis=1)
-    diff = np.diff(pts, axis=1).ravel()
     tl = pts[np.argmin(s)]
     br = pts[np.argmax(s)]
     rem = [i for i in range(4) if not np.allclose(pts[i], tl) and not np.allclose(pts[i], br)]
@@ -52,11 +49,9 @@ class CubeSegmenter:
         if bgr is None or bgr.size == 0:
             return CubeSegmentationResult(None, False, {"reason": "empty"})
 
-        h, w = bgr.shape[:2]
         blurred = cv2.GaussianBlur(bgr, (self._blur_ksize, self._blur_ksize), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self._hsv_lower, self._hsv_upper)
-
         k = max(3, self._morph_ksize)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
@@ -80,6 +75,5 @@ class CubeSegmenter:
         if self._ema_alpha > 0.0 and self._corners_ema is not None:
             corners = self._ema_alpha * corners + (1.0 - self._ema_alpha) * self._corners_ema
         self._corners_ema = corners.copy()
-
         meta["center"] = corners.mean(axis=0).tolist()
         return CubeSegmentationResult(corners, True, meta)

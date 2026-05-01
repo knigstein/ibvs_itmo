@@ -56,7 +56,6 @@ class UniversalRobotAPI(threading.Thread):
             self.__model, mujoco.mjtObj.mjOBJ_SITE, "real_sense_site"
         )
         self._jnt_dof_ids = [mujoco.mj_name2id(self.__model, mujoco.mjtObj.mjOBJ_JOINT, name) for name in self.__joint_names]
-        # Винт IBVS в базисе камеры (сайт real_sense_site), не в eef_site.
         self.__desired_vel = np.array([0, 0, 0, 0, 0, 0])
         self.__stopped = controls
 
@@ -105,7 +104,7 @@ class UniversalRobotAPI(threading.Thread):
         pass
 
     def speedL(self, speed: np.ndarray, acceleration: float = 0.25):
-        """Задать винт камеры (6,) в базисе real_sense_site для IBVS."""
+        """Винт (6,) в базисе сайта real_sense_site (IBVS)."""
         self.__desired_vel = speed
 
     def speedJ(self, joint_dq: np.ndarray, acceleration: float = 0.5):

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import cv2
 import mujoco
@@ -96,7 +96,6 @@ class MuJoCoArmSim:
         self._update_telemetry()
 
     def physics_step_hold(self) -> None:
-        """Нулевое управление (только интегратор)."""
         self.data.qfrc_applied[:6] = 0.0
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()

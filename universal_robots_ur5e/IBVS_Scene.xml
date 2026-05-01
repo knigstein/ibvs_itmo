@@ -22,7 +22,6 @@
       <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
       <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
-      <!-- Динамический деревянный куб (контраст с синим шахматным полом). -->
       <body name="work_cube" pos="0.42 -0.48 0.14">
         <freejoint/>
         <geom name="work_cube_geom" type="box" size="0.04 0.04 0.04" mass="0.1"
@@ -30,7 +29,6 @@
       </body>
     </worldbody>
 
-    <!-- Жёсткая стыковка инструмента и куба при «захвате» (включается из кода). -->
     <equality>
       <weld name="grasp_weld" body1="tool" body2="work_cube" solref="0.02 1" solimp="0.99 0.999 0.0001"/>
     </equality>

@@ -1,4 +1,3 @@
-"""Загрузка сцены и проверка имён (требуется mujoco)."""
 import sys
 from pathlib import Path
 

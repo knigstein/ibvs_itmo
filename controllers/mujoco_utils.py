@@ -3,7 +3,7 @@ import numpy as np
 
 
 def get_site_jac(model, data, site_id):
-    """Якобиан сайта: 6×nv (три строки линейной скорости, три — угловой), в мире."""
+    """Якобиан сайта: 6×nv (линейная и угловая скорость в мире)."""
     jacp = np.zeros((3, model.nv), dtype=np.float64)
     jacr = np.zeros((3, model.nv), dtype=np.float64)
     mujoco.mj_jacSite(model, data, jacp, jacr, site_id)

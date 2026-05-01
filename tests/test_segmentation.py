@@ -1,13 +1,11 @@
-"""Сегментация на синтетике."""
 import sys
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
-import cv2  # noqa: E402
 
 from vision import CubeSegmenter  # noqa: E402
 
