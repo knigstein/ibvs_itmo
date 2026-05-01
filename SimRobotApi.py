@@ -52,7 +52,11 @@ class UniversalRobotAPI(threading.Thread):
         )
 
         self.__eef_id = mujoco.mj_name2id(self.__model, mujoco.mjtObj.mjOBJ_SITE, "eef_site")
+        self.__cam_site_id = mujoco.mj_name2id(
+            self.__model, mujoco.mjtObj.mjOBJ_SITE, "real_sense_site"
+        )
         self._jnt_dof_ids = [mujoco.mj_name2id(self.__model, mujoco.mjtObj.mjOBJ_JOINT, name) for name in self.__joint_names]
+        # Винт IBVS в базисе камеры (сайт real_sense_site), не в eef_site.
         self.__desired_vel = np.array([0, 0, 0, 0, 0, 0])
         self.__stopped = controls
 
@@ -70,8 +74,9 @@ class UniversalRobotAPI(threading.Thread):
                 while viewer.is_running() and not self.__stopped[0]:
                     mujoco.mj_step(self.__model, self.__data)
                     viewer.sync()
-                    R_cam = self.__data.site_xmat[self.__eef_id].reshape(3,3).T
-                    self.__controller.run_vel(self.__desired_vel, R_cam)
+                    self.__controller.run_vel_camera_ibvs(
+                        self.__desired_vel, self.__cam_site_id
+                    )
                     time.sleep(0.01)
 
             except KeyboardInterrupt:
@@ -100,6 +105,7 @@ class UniversalRobotAPI(threading.Thread):
         pass
 
     def speedL(self, speed: np.ndarray, acceleration: float = 0.25):
+        """Задать винт камеры (6,) в базисе real_sense_site для IBVS."""
         self.__desired_vel = speed
 
     def speedJ(self, joint_dq: np.ndarray, acceleration: float = 0.5):

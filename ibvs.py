@@ -110,6 +110,11 @@ class IBVS:
         '''Эталонный вектор признаков в нормализованных координатах изображения, форма (2n,).'''
         return self._s_desired
 
+    @property
+    def exit_threshold(self) -> float:
+        '''Порог нормы ошибки по признакам для сходимости.'''
+        return self._exit_treshhold
+
     def calculate_interaction_matrix(self, x, y, Z: float):
         '''Матрица взаимодействия L_i для одной точки в нормализованной плоскости изображения
         (фокусное расстояние сведено к масштабу 1).

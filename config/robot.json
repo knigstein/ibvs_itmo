@@ -1,0 +1,17 @@
+{
+  "default_Z": 0.52,
+  "grasp_distance": 0.14,
+  "final_align_error_scale": 0.85,
+  "align_hold_steps": 8,
+  "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
+  "move_j_duration_s": 4.0,
+  "max_ibvs_speed": 0.35,
+  "vision": {
+    "hsv_lower": [5, 45, 35],
+    "hsv_upper": [38, 255, 255],
+    "blur_ksize": 5,
+    "morph_ksize": 5,
+    "min_area": 350,
+    "ema_alpha": 0.4
+  }
+}
