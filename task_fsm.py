@@ -8,6 +8,7 @@ import numpy as np
 
 from ibvs import IBVS
 from vision.cube_segmentation import CubeSegmenter
+from vision.depth_map import build_depth_provider
 
 if TYPE_CHECKING:
     from sim_env import MuJoCoArmSim
@@ -48,7 +49,9 @@ class PickPlaceFSM:
         self._align_hold = int(cfg.get("align_hold_steps", 8))
         self._grasp_dist = float(cfg.get("grasp_distance", 0.14))
         self.default_Z = float(cfg.get("default_Z", 0.5))
-        self._ibvs_Z = self.default_Z + float(cfg.get("ibvs_depth_offset_m", 0.0))
+        self._depth_offset = float(cfg.get("ibvs_depth_offset_m", 0.0))
+        self._z_fallback = self.default_Z + self._depth_offset
+        self._depth_map, self._depth_mode = build_depth_provider(cfg)
 
         s_cfg = cfg.get("search") or {}
         self._lost_threshold = int(s_cfg.get("lost_frames_to_search", 15))
@@ -96,7 +99,23 @@ class PickPlaceFSM:
     def _lost_search_triggered(self) -> bool:
         return self._lost_streak >= self._lost_threshold
 
-    def step(self, sim: "MuJoCoArmSim", img_bgr: np.ndarray) -> np.ndarray:
+    def _ibvs_Z(self, corners: np.ndarray, depth_m: Optional[np.ndarray]):
+        """Скаляр или вектор (4,) глубин для IBVS; при ошибке — fallback из конфига."""
+        z_meas: Optional[float] = None
+        if self._depth_map is not None and depth_m is not None:
+            z_meas = self._depth_map.Z_for_ibvs(corners, depth_m)
+        if z_meas is not None:
+            z = float(z_meas) + self._depth_offset
+            return np.full(4, z, dtype=float)
+        return self._z_fallback
+
+    def step(
+        self,
+        sim: "MuJoCoArmSim",
+        img_bgr: np.ndarray,
+        *,
+        depth_m: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         seg = self.segmenter.detect(img_bgr)
         seg_ok = bool(seg.ok and seg.corners is not None)
         v = np.zeros(6, dtype=float)
@@ -118,7 +137,8 @@ class PickPlaceFSM:
                     self._enter_search()
                 return v
             self._note_visibility(True)
-            v_c, e, _ = self.ibvs.step(seg.corners, self._ibvs_Z)
+            Z = self._ibvs_Z(seg.corners, depth_m)
+            v_c, e, _ = self.ibvs.step(seg.corners, Z)
             n = np.linalg.norm(v_c)
             if n > self._max_speed and n > 1e-9:
                 v_c = v_c * (self._max_speed / n)
@@ -135,7 +155,8 @@ class PickPlaceFSM:
                     self._enter_search()
                 return v
             self._note_visibility(True)
-            v_c, e, _ = self.ibvs.step(seg.corners, self._ibvs_Z)
+            Z = self._ibvs_Z(seg.corners, depth_m)
+            v_c, e, _ = self.ibvs.step(seg.corners, Z)
             thr = self.ibvs.exit_threshold * self._final_scale
             if float(np.linalg.norm(e)) < thr:
                 self._align_count += 1
@@ -157,6 +178,11 @@ class PickPlaceFSM:
                     self._enter_search()
                 return v
             self._note_visibility(True)
+            Z = self._ibvs_Z(seg.corners, depth_m)
+            v_c, _, _ = self.ibvs.step(seg.corners, Z)
+            n = np.linalg.norm(v_c)
+            if n > self._max_speed * 0.35 and n > 1e-9:
+                v_c = v_c * (self._max_speed * 0.35 / n)
             if sim.eef_cube_distance < self._grasp_dist:
                 sim.set_grasp_weld(True)
                 sim.mj_forward()
@@ -164,7 +190,7 @@ class PickPlaceFSM:
                 self._move_t = 0.0
                 self._q0 = sim.get_q()
                 self._emit(Phase.TRANSPORT)
-            return v
+            return v_c
 
         return v
 

@@ -19,12 +19,15 @@ class MuJoCoArmSim:
         joint_pd_kp: float = 280.0,
         joint_pd_kd: float = 85.0,
         robot_cfg: Optional[Dict[str, Any]] = None,
+        camera_cfg: Optional[Dict[str, Any]] = None,
     ):
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
         self.renderer = mujoco.Renderer(self.model, height=480, width=640)
 
         cfg = robot_cfg or {}
+        cam = camera_cfg or {}
+        self._render_camera = str(cam.get("mujoco_camera") or "real_sense")
 
         self.joint_names: List[str] = [
             "shoulder_pan_joint",
@@ -121,8 +124,20 @@ class MuJoCoArmSim:
     def mj_forward(self) -> None:
         mujoco.mj_forward(self.model, self.data)
 
-    def render_camera_bgr(self) -> np.ndarray:
-        self.renderer.update_scene(self.data, camera="real_sense")
+    def camera_T_w_c(self) -> np.ndarray:
+        """
+        Поза единственной камеры на роботе в мире: p_w = R @ p_c + t (MuJoCo site frame).
+        """
+        R = self.data.site_xmat[self.cam_site_id].reshape(3, 3).copy()
+        t = self.data.site_xpos[self.cam_site_id].copy()
+        T = np.eye(4, dtype=np.float64)
+        T[:3, :3] = R
+        T[:3, 3] = t
+        return T
+
+    def render_camera_bgr(self, camera: Optional[str] = None) -> np.ndarray:
+        name = camera if camera is not None else self._render_camera
+        self.renderer.update_scene(self.data, camera=name)
         rgb = self.renderer.render()
         return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 

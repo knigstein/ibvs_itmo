@@ -1,4 +1,13 @@
 from .cube_segmentation import CubeSegmentationResult, CubeSegmenter
-from .yolo_detection import CubeSegmentationResult, YOLOFeatureDetector
+from .depth_map import DepthMapProvider, build_depth_provider, median_Z_for_ibvs
+from .sfm_one_camera import K_from_camera_json, OneCameraTwoPoseSfM
 
-__all__ = ["CubeSegmentationResult", "CubeSegmenter", "YOLOFeatureDetector"]
+__all__ = [
+    "CubeSegmentationResult",
+    "CubeSegmenter",
+    "DepthMapProvider",
+    "build_depth_provider",
+    "median_Z_for_ibvs",
+    "K_from_camera_json",
+    "OneCameraTwoPoseSfM",
+]

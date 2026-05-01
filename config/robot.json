@@ -9,6 +9,14 @@
   "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
   "move_j_duration_s": 4.0,
   "max_ibvs_speed": 0.35,
+  "depth": {
+    "mode": "depth_map",
+    "source": "sfm_two_view",
+    "sfm_min_baseline_m": 0.003,
+    "z_min_m": 0.12,
+    "z_max_m": 2.5,
+    "min_valid_corners": 2
+  },
   "search": {
     "lost_frames_to_search": 15,
     "dwell_s": 0.5,
