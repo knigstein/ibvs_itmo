@@ -2,3 +2,4 @@ numpy>=1.21
 opencv-python>=4.5
 mujoco>=3.1.0
 pytest>=7.0
+ultralytics>=8.4

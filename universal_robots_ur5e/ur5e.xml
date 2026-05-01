@@ -245,8 +245,8 @@
     <motor name="wrist_2" joint="wrist_2_joint"/>
     <motor name="wrist_3" joint="wrist_3_joint"/>
     <general name="gripper_2f85_fingers_actuator" tendon="gripper_2f85_split"
-      forcerange="-5 5" ctrlrange="0 255"
-      gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
+      forcerange="-5 5" ctrlrange="-255 255"
+      gainprm="0.3137255 0 0" biasprm="0 0 0"/>
     <!-- <general class="size1" name="shoulder_pan_vel"  joint="egp_prismatic_1" />
     <general class="size1" name="shoulder_lift_vel" joint="egp_prismatic_2" /> -->
   </actuator>
