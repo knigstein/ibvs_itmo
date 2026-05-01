@@ -10,6 +10,7 @@ import mujoco
 import numpy as np
 
 from controllers.operational_space_controller import OperationalSpaceController
+from controllers.transform_utils import mat2quat
 
 
 class MuJoCoArmSim:
@@ -97,6 +98,8 @@ class MuJoCoArmSim:
 
         self._last_eef_cube_dist: float = 0.0
         self._apply_gripper_ctrl()
+        self._z_lock_pose: Optional[np.ndarray] = None
+        self._z_lock_offset: float = 0.0
 
     def _apply_gripper_ctrl(self) -> None:
         if self._gripper_act_id < 0 or self.model.nu <= self._gripper_act_id:
@@ -161,6 +164,28 @@ class MuJoCoArmSim:
         self._apply_gripper_ctrl()
         v_world = np.asarray(v_world, dtype=float).reshape(6)
         self.controller.run_vel_world(v_world, self.eef_site_id)
+        mujoco.mj_step(self.model, self.data)
+        self._update_telemetry()
+
+    def reset_z_axis_lock(self) -> None:
+        self._z_lock_pose = None
+        self._z_lock_offset = 0.0
+
+    def physics_step_locked_vertical(self, vz_world: float, dt: float) -> None:
+        """
+        Калибровочный режим: фиксируем X/Y + ориентацию EEF и меняем только Z.
+        """
+        self._apply_gripper_ctrl()
+        if self._z_lock_pose is None:
+            ee_pos = self.data.site_xpos[self.eef_site_id].copy()
+            ee_quat = mat2quat(self.data.site_xmat[self.eef_site_id].reshape(3, 3))
+            self._z_lock_pose = np.concatenate([ee_pos, ee_quat])
+            self._z_lock_offset = 0.0
+
+        self._z_lock_offset += float(vz_world) * max(float(dt), 1e-6)
+        target = self._z_lock_pose.copy()
+        target[2] = self._z_lock_pose[2] + self._z_lock_offset
+        self.controller.run(target)
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 

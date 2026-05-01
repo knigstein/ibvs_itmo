@@ -21,6 +21,7 @@ import mujoco.viewer
 from ibvs import IBVS
 from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
+from vision import K_from_camera_json, OneCameraTwoPoseSfM, build_depth_provider
 from vision.yolo_detection import YOLOFeatureDetector as CubeSegmenter
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +64,7 @@ def main() -> None:
         )
 
     dt = 0.01
+    prev_phase = Phase.IDLE
     with mujoco.viewer.launch_passive(sim.model, sim.data) as viewer:
         while viewer.is_running():
             img = sim.render_camera_bgr()
@@ -77,6 +79,14 @@ def main() -> None:
             if fsm.phase == Phase.RELEASE:
                 fsm.finish_release(sim)
 
+            if fsm.phase != prev_phase:
+                calib_phases = {Phase.CALIBRATION_DESCEND, Phase.CALIBRATION_ASCEND}
+                if prev_phase not in calib_phases and fsm.phase in calib_phases:
+                    sim.reset_z_axis_lock()
+                if prev_phase in calib_phases and fsm.phase not in calib_phases:
+                    sim.reset_z_axis_lock()
+                prev_phase = fsm.phase
+
             sim.sync_gripper_with_phase(fsm.phase)
 
             if fsm.phase == Phase.TRANSPORT:
@@ -90,6 +100,9 @@ def main() -> None:
             elif fsm.phase in (
                 Phase.CALIBRATION_DESCEND,
                 Phase.CALIBRATION_ASCEND,
+            ):
+                sim.physics_step_locked_vertical(v[2], dt)
+            elif fsm.phase in (
                 Phase.DESCENT_TO_GRASP,
                 Phase.LIFT_AFTER_GRASP,
             ):
