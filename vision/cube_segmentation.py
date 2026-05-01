@@ -31,6 +31,7 @@ def _order_corners(pts: np.ndarray) -> np.ndarray:
 class CubeSegmenter:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         cfg = config or {}
+        self._counter = 0
         self._hsv_lower = np.array(cfg.get("hsv_lower", [5, 50, 40]), dtype=np.uint8)
         self._hsv_upper = np.array(cfg.get("hsv_upper", [35, 255, 255]), dtype=np.uint8)
         self._blur_ksize = int(cfg.get("blur_ksize", 5)) | 1
@@ -68,6 +69,10 @@ class CubeSegmenter:
         rect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rect)
         corners = _order_corners(box.astype(np.float32))
+
+        cv2.imwrite(f'camera_feed/output_{self._counter}.jpg', mask)
+        self._counter = self._counter + 1 if self._counter < 10 else 0
+        print(f"Saved camera feed image to camera_feed/output_{self._counter}.jpg")
 
         if self._ema_alpha > 0.0 and self._corners_ema is not None:
             corners = self._ema_alpha * corners + (1.0 - self._ema_alpha) * self._corners_ema
