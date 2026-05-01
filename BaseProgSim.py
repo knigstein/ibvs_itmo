@@ -42,6 +42,7 @@ def main() -> None:
         ibvs,
         segmenter,
         robot_cfg,
+        camera_cfg=cam_cfg,
         on_phase=lambda p: print("FSM:", p.name),
     )
     fsm.start()
@@ -71,7 +72,7 @@ def main() -> None:
                 seg_sfm = segmenter.detect(img)
                 corners = seg_sfm.corners if seg_sfm.ok else None
                 depth_m = sfm.update(corners, T_w_c)
-            v = fsm.step(sim, img, depth_m=depth_m)
+            v = fsm.step(sim, img, depth_m=depth_m, dt=dt)
 
             if fsm.phase == Phase.RELEASE:
                 fsm.finish_release(sim)
@@ -86,9 +87,15 @@ def main() -> None:
                 q_s = fsm.joint_target_for_search(sim, dt)
                 if q_s is not None:
                     sim.physics_step_joint(q_s)
-            elif fsm.phase == Phase.GRASP_CLOSE:
-                sim.physics_step_ibvs(v)
-            elif fsm.phase in (Phase.IBVS_APPROACH, Phase.FINAL_ALIGN):
+            elif fsm.phase in (
+                Phase.CALIBRATION_DESCEND,
+                Phase.CALIBRATION_ASCEND,
+                Phase.IBVS_APPROACH,
+                Phase.FINAL_ALIGN,
+                Phase.GRASP_CLOSE,
+                Phase.DESCENT_TO_GRASP,
+                Phase.LIFT_AFTER_GRASP,
+            ):
                 sim.physics_step_ibvs(v)
             else:
                 sim.physics_step_hold()

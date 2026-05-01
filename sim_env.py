@@ -114,9 +114,18 @@ class MuJoCoArmSim:
     def sync_gripper_with_phase(self, phase: Any) -> None:
         from task_fsm import Phase as P
 
-        if phase in (P.IBVS_APPROACH, P.FINAL_ALIGN, P.SEARCH, P.GRASP_CLOSE):
+        if phase in (
+            P.CALIBRATION_MARKER,
+            P.CALIBRATION_DESCEND,
+            P.CALIBRATION_ASCEND,
+            P.IBVS_APPROACH,
+            P.FINAL_ALIGN,
+            P.SEARCH,
+            P.GRASP_CLOSE,
+            P.DESCENT_TO_GRASP,
+        ):
             self.set_gripper_open()
-        elif phase == P.TRANSPORT:
+        elif phase in (P.LIFT_AFTER_GRASP, P.TRANSPORT):
             self.set_gripper_closed()
         elif phase in (P.IDLE, P.DONE, P.RELEASE):
             self.set_gripper_open()

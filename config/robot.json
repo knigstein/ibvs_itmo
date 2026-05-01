@@ -9,6 +9,20 @@
   "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
   "move_j_duration_s": 4.0,
   "max_ibvs_speed": 0.35,
+  "z_calibration": {
+    "enabled": true,
+    "dictionary": "DICT_4X4_50",
+    "marker_id": 0,
+    "marker_size_m": 0.04,
+    "known_start_distance_m": 0.52,
+    "probe_descent_m": 0.05,
+    "probe_speed_mps": 0.03,
+    "descent_direction_sign": 1.0,
+    "min_observed_delta_m": 0.005,
+    "grasp_descent_m": 0.12,
+    "grasp_descent_speed_mps": 0.035,
+    "lift_after_grasp_m": 0.12
+  },
   "depth": {
     "mode": "depth_map",
     "source": "sfm_two_view",

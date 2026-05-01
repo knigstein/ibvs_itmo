@@ -44,6 +44,8 @@ def fsm_and_img():
         cam = json.load(f)
     with open(_ROOT / "config" / "robot.json", "r", encoding="utf8") as f:
         robot = json.load(f)
+    robot.setdefault("z_calibration", {})
+    robot["z_calibration"]["enabled"] = False
     ibvs = IBVS(cam)
     seg = CubeSegmenter(robot.get("vision", {}))
     fsm = PickPlaceFSM(ibvs, seg, robot)
@@ -63,9 +65,16 @@ def test_grasp_when_close(fsm_and_img):
     stub = _StubSim()
     stub._dist = 0.05
     fsm._grasp_dist = 0.14
+    fsm._grasp_descent_m = 0.01
+    fsm._grasp_lift_m = 0.01
+    fsm._grasp_descent_speed = 1.0
     corners = np.array([[100, 100], [200, 100], [200, 200], [100, 200]], dtype=np.float32)
     fsm.segmenter.detect = lambda _bgr: CubeSegmentationResult(corners, True, {})
-    fsm.step(stub, img)
+    fsm.step(stub, img, dt=0.01)
+    assert fsm.phase == Phase.DESCENT_TO_GRASP
+    fsm.step(stub, img, dt=0.02)
+    assert fsm.phase == Phase.LIFT_AFTER_GRASP
+    fsm.step(stub, img, dt=0.02)
     assert fsm.phase == Phase.TRANSPORT
     assert stub.grasp_on
 
