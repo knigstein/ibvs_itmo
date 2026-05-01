@@ -21,6 +21,8 @@ import mujoco.viewer
 from ibvs import IBVS
 from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
+from vision.depth_map import build_depth_provider
+from vision.sfm_one_camera import K_from_camera_json, OneCameraTwoPoseSfM
 from vision.yolo_detection import YOLOFeatureDetector as CubeSegmenter
 
 script_dir = os.path.dirname(os.path.abspath(__file__))

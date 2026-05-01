@@ -16,23 +16,28 @@
         markrgb="0.75 0.78 0.82" width="300" height="300"/>
       <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.15"/>
       <material name="wood_cube" rgba="0.52 0.34 0.18 1" specular="0.25" shininess="0.2"/>
+
+  
+      <texture name="aruco_tex" type="2d" file="aruco_test.png"/>
+      <material name="aruco_mat" texture="aruco_tex" texrepeat="1 1" rgba="1 1 1 1"/>
     </asset>
 
     <worldbody>
       <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
       <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-      <!-- <body name="marker_cube" pos="0.4 0.5 0.2">
-        <freejoint/>
-        <geom type="box" size="0.04 0.04 0.04" material="aruco_mat" euler="0 0 -1.57" mass="0.1"/>
-      </body> -->
+
+      <body name= "mocap_body" pos= "0.12 -0.4 0" euler="0 0 0"  mocap="true">
+        <geom type="box" size="0.04 0.04 0.00000000000001" material="aruco_mat" euler="0 0 -1.57" conaffinity="0" contype="0"/>
+      </body>
+
     </worldbody>
     
     <include file="./assets/objaverse/plate_11/model.xml"/>
-    <include file="./assets/objaverse/cube.xml"/>
+    <include file="./assets/objaverse/obj_orange.xml"/>
     <!-- quat="0.707107 0 -0.707107 0" -->
 
     <equality>
-      <weld name="grasp_weld" body1="tool" body2="body_obj_cube" solref="0.02 1" solimp="0.99 0.999 0.0001"/>
+      <weld name="grasp_weld" body1="tool" body2="obj_orange" solref="0.02 1" solimp="0.99 0.999 0.0001"/>
     </equality>
 
   </mujoco>
