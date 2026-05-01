@@ -1,11 +1,36 @@
 {
   "default_Z": 0.52,
+  "ibvs_depth_offset_m": 0.0,
+  "grasp_site_for_distance": "gripper_2f85_pinch",
+  "target_geom_for_distance": "small_cube_geom",
   "grasp_distance": 0.14,
   "final_align_error_scale": 0.85,
   "align_hold_steps": 8,
   "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
-  "move_j_duration_s": 1.0,
+  "move_j_duration_s": 4.0,
   "max_ibvs_speed": 1,
+  "depth": {
+    "mode": "depth_map",
+    "source": "sfm_two_view",
+    "sfm_min_baseline_m": 0.003,
+    "z_min_m": 0.12,
+    "z_max_m": 2.5,
+    "min_valid_corners": 2
+  },
+  "search": {
+    "lost_frames_to_search": 15,
+    "dwell_s": 0.5,
+    "waypoints": [
+      [1.5708, -1.5708, 1.3089, -1.3439, -1.5708, 0.0],
+      [2.2, -1.5708, 1.3089, -1.3439, -1.5708, 0.0],
+      [0.9, -1.5708, 1.3089, -1.3439, -1.5708, 0.0]
+    ]
+  },
+  "gripper": {
+    "actuator_name": "gripper_2f85_fingers_actuator",
+    "open_ctrl": -255,
+    "closed_ctrl": 255
+  },
   "vision": {
     "detector_type": "universal",
     

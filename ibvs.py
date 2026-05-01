@@ -45,7 +45,7 @@ class IBVS:
         if active_directions is None:
             active_directions = [0, 1, 2, 3, 4, 5]
         if control_coefficient is None:
-            control_coefficient = [0.3, 0.3, 0.3, 0.5, 0.5, 0.5]
+            control_coefficient = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
         self._control_coefficient = np.asarray(control_coefficient, dtype=float).reshape(6)
         self._active_directions = np.sort(np.asarray(active_directions, dtype=int))
         self._exit_treshhold = exit_treshhold
@@ -160,7 +160,7 @@ class IBVS:
     def get_jacobian(self, features_current_positions: Union[list, np.ndarray], Z) -> np.ndarray:
         '''Сводная матрица взаимодействия L размера (2n, 6).
 
-        Z — скаляр или массив формы с глубиной каждой точки.
+        Z — скаляр или массив формы (n,) с глубиной каждой точки в системе камеры, м.
         '''
         features_current_positions = np.asarray(features_current_positions, dtype=float)
         if features_current_positions.ndim == 1:

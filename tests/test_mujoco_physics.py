@@ -1,4 +1,7 @@
 """Несколько шагов симуляции и инварианты weld (нужен mujoco)."""
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -6,16 +9,25 @@ pytest.importorskip("mujoco")
 
 from sim_env import MuJoCoArmSim
 
+_ROOT = Path(__file__).resolve().parents[1]
+_SCENE = str(_ROOT / "universal_robots_ur5e" / "IBVS_Scene.xml")
+with open(_ROOT / "config" / "camera.json", "r", encoding="utf8") as _cf:
+    _CAM_CFG = json.load(_cf)
+
+
+def _sim():
+    return MuJoCoArmSim(model_path=_SCENE, camera_cfg=_CAM_CFG)
+
 
 def test_grasp_weld_starts_disabled():
-    sim = MuJoCoArmSim()
+    sim = _sim()
     if sim.grasp_eq_id < 0:
         pytest.skip("нет grasp_weld в модели")
     assert sim.data.eq_active[sim.grasp_eq_id] == 0
 
 
 def test_physics_steps_zero_ibvs_finite_state():
-    sim = MuJoCoArmSim()
+    sim = _sim()
     q0 = sim.get_q().copy()
     for _ in range(20):
         sim.physics_step_ibvs(np.zeros(6))
@@ -25,7 +37,7 @@ def test_physics_steps_zero_ibvs_finite_state():
 
 
 def test_joint_pd_moves_toward_target():
-    sim = MuJoCoArmSim()
+    sim = _sim()
     q0 = sim.get_q().copy()
     q_goal = q0 + np.array([0.05, 0, 0, 0, 0, 0])
     for _ in range(80):
@@ -36,7 +48,7 @@ def test_joint_pd_moves_toward_target():
 
 
 def test_grasp_weld_toggle():
-    sim = MuJoCoArmSim()
+    sim = _sim()
     if sim.grasp_eq_id < 0:
         pytest.skip("нет grasp_weld")
     sim.set_grasp_weld(True)

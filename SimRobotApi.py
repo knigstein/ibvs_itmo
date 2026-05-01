@@ -76,7 +76,7 @@ class UniversalRobotAPI(threading.Thread):
                     self.__controller.run_vel_camera_ibvs(
                         self.__desired_vel, self.__cam_site_id
                     )
-                    time.sleep(0.01)
+                    # time.sleep(0.01)
 
             except KeyboardInterrupt:
                 pass

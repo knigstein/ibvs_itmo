@@ -1,14 +1,13 @@
-"""vision/__init__.py — Модуль детекции объектов для IBVS."""
-from vision.cube_segmentation import CubeSegmenter, CubeSegmentationResult
-from vision.yolo_detection import YOLOFeatureDetector
-from vision.shape_segmenter import GeneralShapeSegmenter, ShapeSegmentationResult
-from vision.detector_factory import create_detector
+from .cube_segmentation import CubeSegmentationResult, CubeSegmenter
+from .depth_map import DepthMapProvider, build_depth_provider, median_Z_for_ibvs
+from .sfm_one_camera import K_from_camera_json, OneCameraTwoPoseSfM
 
 __all__ = [
-    "CubeSegmenter",
     "CubeSegmentationResult",
-    "YOLOFeatureDetector", 
-    "GeneralShapeSegmenter",
-    "ShapeSegmentationResult",
-    "create_detector",
+    "CubeSegmenter",
+    "DepthMapProvider",
+    "build_depth_provider",
+    "median_Z_for_ibvs",
+    "K_from_camera_json",
+    "OneCameraTwoPoseSfM",
 ]

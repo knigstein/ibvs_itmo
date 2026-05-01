@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -10,7 +11,12 @@ def test_scene_loads_and_ids():
 
     from sim_env import MuJoCoArmSim
 
-    sim = MuJoCoArmSim()
+    with open(ROOT / "config" / "camera.json", "r", encoding="utf8") as f:
+        cam_cfg = json.load(f)
+    sim = MuJoCoArmSim(
+        model_path=str(ROOT / "universal_robots_ur5e" / "IBVS_Scene.xml"),
+        camera_cfg=cam_cfg,
+    )
     assert sim.cam_site_id >= 0
     assert sim.work_geom_id >= 0
     assert sim.model.neq >= 1
