@@ -20,7 +20,7 @@
   },
   "gripper": {
     "actuator_name": "gripper_2f85_fingers_actuator",
-    "open_ctrl": 0,
+    "open_ctrl": -255,
     "closed_ctrl": 255
   },
   "vision": {

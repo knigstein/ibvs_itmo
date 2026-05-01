@@ -47,6 +47,7 @@ Thumbs.db
 *.log
 data/
 camera_feed/
+*.pt
 *.png~
 *.jpg~
 
