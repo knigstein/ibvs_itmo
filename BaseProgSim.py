@@ -16,18 +16,15 @@ from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
 from vision import CubeSegmenter
 
-# Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
-model_dir = os.path.join(script_dir, 'universal_robots_ur5e')
-
-# Change to model directory so MuJoCo resolves relative paths correctly
+model_dir = os.path.join(script_dir, "universal_robots_ur5e")
 os.chdir(model_dir)
 
 
 def main() -> None:
     robot_cfg = load_robot_config()
     cam_cfg = load_camera_config()
-    sim = MuJoCoArmSim(model_path=os.path.join(model_dir, "IBVS_Scene.xml"))
+    sim = MuJoCoArmSim(model_path=os.path.join(model_dir, "IBVS_Scene.xml"), robot_cfg=robot_cfg)
     ibvs = IBVS(cam_cfg)
     segmenter = CubeSegmenter(robot_cfg.get("vision", {}))
     fsm = PickPlaceFSM(ibvs, segmenter, robot_cfg, on_phase=lambda p: print("FSM:", p.name))
@@ -38,14 +35,20 @@ def main() -> None:
         while viewer.is_running():
             img = sim.render_camera_bgr()
             v = fsm.step(sim, img)
-            print(fsm.phase)
+
             if fsm.phase == Phase.RELEASE:
                 fsm.finish_release(sim)
-                sim.physics_step_hold()
-            elif fsm.phase == Phase.TRANSPORT:
+
+            sim.sync_gripper_with_phase(fsm.phase)
+
+            if fsm.phase == Phase.TRANSPORT:
                 q_tgt = fsm.joint_target_for_transport(sim, dt)
                 if q_tgt is not None:
                     sim.physics_step_joint(q_tgt)
+            elif fsm.phase == Phase.SEARCH:
+                q_s = fsm.joint_target_for_search(sim, dt)
+                if q_s is not None:
+                    sim.physics_step_joint(q_s)
             elif fsm.phase == Phase.GRASP_CLOSE:
                 sim.physics_step_ibvs(v)
             elif fsm.phase in (Phase.IBVS_APPROACH, Phase.FINAL_ALIGN):

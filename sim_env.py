@@ -18,10 +18,13 @@ class MuJoCoArmSim:
         model_path: str = "universal_robots_ur5e/IBVS_Scene.xml",
         joint_pd_kp: float = 280.0,
         joint_pd_kd: float = 85.0,
+        robot_cfg: Optional[Dict[str, Any]] = None,
     ):
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
         self.renderer = mujoco.Renderer(self.model, height=480, width=640)
+
+        cfg = robot_cfg or {}
 
         self.joint_names: List[str] = [
             "shoulder_pan_joint",
@@ -37,13 +40,34 @@ class MuJoCoArmSim:
         self.eef_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "eef_site")
         self.cam_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "real_sense_site")
 
+        grasp_site_name = str(cfg.get("grasp_site_for_distance", "gripper_2f85_pinch"))
+        gs_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, grasp_site_name)
+        self.grasp_site_id = gs_id if gs_id >= 0 else self.eef_site_id
+
         _eq_typ = getattr(mujoco.mjtObj, "mjOBJ_EQUALITY", None)
         if _eq_typ is None:
             _eq_typ = getattr(mujoco.mjtObj, "mjOBJ_EQ", None)
         self.grasp_eq_id = (
             mujoco.mj_name2id(self.model, _eq_typ, "grasp_weld") if _eq_typ is not None else -1
         )
-        self.work_geom_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "work_cube_geom")
+        geom_candidates = cfg.get("target_geom_for_distance")
+        if geom_candidates is None:
+            geom_candidates = ["small_cube_geom", "work_cube_geom"]
+        elif isinstance(geom_candidates, str):
+            geom_candidates = [geom_candidates]
+        self.work_geom_id = -1
+        for gname in geom_candidates:
+            gid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, str(gname))
+            if gid >= 0:
+                self.work_geom_id = gid
+                break
+
+        gcfg = cfg.get("gripper") or {}
+        g_act_name = str(gcfg.get("actuator_name", "gripper_2f85_fingers_actuator"))
+        self._gripper_act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, g_act_name)
+        self._gripper_open = float(gcfg.get("open_ctrl", 0.0))
+        self._gripper_closed = float(gcfg.get("closed_ctrl", 255.0))
+        self._gripper_cmd = self._gripper_open
 
         self.controller = OperationalSpaceController(
             self.data,
@@ -69,6 +93,30 @@ class MuJoCoArmSim:
             self.data.eq_active[self.grasp_eq_id] = 0
 
         self._last_eef_cube_dist: float = 0.0
+        self._apply_gripper_ctrl()
+
+    def _apply_gripper_ctrl(self) -> None:
+        if self._gripper_act_id < 0 or self.model.nu <= self._gripper_act_id:
+            return
+        self.data.ctrl[self._gripper_act_id] = self._gripper_cmd
+
+    def set_gripper_open(self) -> None:
+        self._gripper_cmd = self._gripper_open
+        self._apply_gripper_ctrl()
+
+    def set_gripper_closed(self) -> None:
+        self._gripper_cmd = self._gripper_closed
+        self._apply_gripper_ctrl()
+
+    def sync_gripper_with_phase(self, phase: Any) -> None:
+        from task_fsm import Phase as P
+
+        if phase in (P.IBVS_APPROACH, P.FINAL_ALIGN, P.SEARCH, P.GRASP_CLOSE):
+            self.set_gripper_open()
+        elif phase == P.TRANSPORT:
+            self.set_gripper_closed()
+        elif phase in (P.IDLE, P.DONE, P.RELEASE):
+            self.set_gripper_open()
 
     def mj_forward(self) -> None:
         mujoco.mj_forward(self.model, self.data)
@@ -79,13 +127,14 @@ class MuJoCoArmSim:
         return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
     def physics_step_ibvs(self, v_cam: np.ndarray) -> None:
+        self._apply_gripper_ctrl()
         v_cam = np.asarray(v_cam, dtype=float).reshape(6)
         self.controller.run_vel_camera_ibvs(v_cam, self.cam_site_id)
-        print(self.data)
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
     def physics_step_joint(self, q_des: np.ndarray) -> None:
+        self._apply_gripper_ctrl()
         q_des = np.asarray(q_des, dtype=float).reshape(6)
         q = self.data.qpos[self._jnt_dof_ids].copy()
         dq = self.data.qvel[self._jnt_dof_ids].copy()
@@ -97,6 +146,7 @@ class MuJoCoArmSim:
         self._update_telemetry()
 
     def physics_step_hold(self) -> None:
+        self._apply_gripper_ctrl()
         self.data.qfrc_applied[:6] = 0.0
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
@@ -104,7 +154,7 @@ class MuJoCoArmSim:
     def _update_telemetry(self) -> None:
         if self.work_geom_id >= 0:
             gp = self.data.geom_xpos[self.work_geom_id]
-            ep = self.data.site_xpos[self.eef_site_id]
+            ep = self.data.site_xpos[self.grasp_site_id]
             self._last_eef_cube_dist = float(np.linalg.norm(ep - gp))
         else:
             self._last_eef_cube_dist = float("nan")

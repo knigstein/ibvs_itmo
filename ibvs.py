@@ -158,7 +158,8 @@ class IBVS:
         return s - self._s_desired
 
     def get_jacobian(self, features_current_positions: Union[list, np.ndarray], Z) -> np.ndarray:
-        '''Сводная матрица взаимодействия L размера (2n, 6).
+        '''
+        водная матрица взаимодействия L размера (2n, 6).
 
         Z — скаляр или массив формы с глубиной каждой точки.
         '''

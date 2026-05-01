@@ -10,7 +10,7 @@ def test_scene_loads_and_ids():
 
     from sim_env import MuJoCoArmSim
 
-    sim = MuJoCoArmSim()
+    sim = MuJoCoArmSim(model_path=str(ROOT / "universal_robots_ur5e" / "IBVS_Scene.xml"))
     assert sim.cam_site_id >= 0
     assert sim.work_geom_id >= 0
     assert sim.model.neq >= 1

@@ -7,7 +7,7 @@ import pytest
 
 from ibvs import IBVS
 from task_fsm import Phase, PickPlaceFSM
-from vision import CubeSegmenter
+from vision import CubeSegmenter, CubeSegmentationResult
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,6 +15,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 class _StubSim:
     def __init__(self):
         self.grasp_on = False
+        self.gripper_closed = False
         self._dist = 0.5
 
     @property
@@ -23,6 +24,12 @@ class _StubSim:
 
     def set_grasp_weld(self, active: bool) -> None:
         self.grasp_on = bool(active)
+
+    def set_gripper_open(self) -> None:
+        self.gripper_closed = False
+
+    def set_gripper_closed(self) -> None:
+        self.gripper_closed = True
 
     def mj_forward(self) -> None:
         pass
@@ -56,9 +63,36 @@ def test_grasp_when_close(fsm_and_img):
     stub = _StubSim()
     stub._dist = 0.05
     fsm._grasp_dist = 0.14
+    corners = np.array([[100, 100], [200, 100], [200, 200], [100, 200]], dtype=np.float32)
+    fsm.segmenter.detect = lambda _bgr: CubeSegmentationResult(corners, True, {})
     fsm.step(stub, img)
     assert fsm.phase == Phase.TRANSPORT
     assert stub.grasp_on
+
+
+def test_ibvs_lost_triggers_search(fsm_and_img):
+    fsm, img, _ = fsm_and_img
+    fsm._lost_threshold = 3
+    fsm.start()
+    black = np.zeros((480, 640, 3), dtype=np.uint8)
+    stub = _StubSim()
+    for _ in range(4):
+        fsm.step(stub, black)
+    assert fsm.phase == Phase.SEARCH
+
+
+def test_search_recovers_on_detection(fsm_and_img):
+    fsm, img, _ = fsm_and_img
+    fsm.phase = Phase.SEARCH
+    stub = _StubSim()
+    corners = np.array([[100, 100], [200, 100], [200, 200], [100, 200]], dtype=np.float32)
+
+    def _fake_detect(_bgr):
+        return CubeSegmentationResult(corners, True, {})
+
+    fsm.segmenter.detect = _fake_detect
+    fsm.step(stub, img)
+    assert fsm.phase == Phase.IBVS_APPROACH
 
 
 def test_transport_then_release_joint_alpha(fsm_and_img):
@@ -81,7 +115,9 @@ def test_finish_release_done(fsm_and_img):
     fsm, _, _ = fsm_and_img
     stub = _StubSim()
     stub.grasp_on = True
+    stub.gripper_closed = True
     fsm.phase = Phase.RELEASE
     fsm.finish_release(stub)
     assert fsm.phase == Phase.DONE
     assert not stub.grasp_on
+    assert not stub.gripper_closed
