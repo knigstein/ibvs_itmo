@@ -1,0 +1,15 @@
+<mujoco model="grill">
+  <compiler angle="radian"/>
+
+  <asset>
+    <mesh name="grill" content_type="model/stl" file="assets/tool_hd.stl"/>
+  </asset>
+
+  <worldbody>
+    <body name= "grill_body"/>
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="grill" pos= "0.4 -0.9 0.79" euler= "0 0 3.14"/>
+      <!-- <joint type= "free" name= "grill_joint"/> -->
+    <body/>
+
+  </worldbody>
+</mujoco>
