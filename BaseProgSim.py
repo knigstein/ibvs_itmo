@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import os
 import time
 
 import mujoco
@@ -15,11 +16,18 @@ from sim_env import MuJoCoArmSim, load_camera_config, load_robot_config
 from task_fsm import Phase, PickPlaceFSM
 from vision import CubeSegmenter
 
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+model_dir = os.path.join(script_dir, 'universal_robots_ur5e')
+
+# Change to model directory so MuJoCo resolves relative paths correctly
+os.chdir(model_dir)
+
 
 def main() -> None:
     robot_cfg = load_robot_config()
     cam_cfg = load_camera_config()
-    sim = MuJoCoArmSim()
+    sim = MuJoCoArmSim(model_path=os.path.join(model_dir, "IBVS_Scene.xml"))
     ibvs = IBVS(cam_cfg)
     segmenter = CubeSegmenter(robot_cfg.get("vision", {}))
     fsm = PickPlaceFSM(ibvs, segmenter, robot_cfg, on_phase=lambda p: print("FSM:", p.name))
@@ -30,7 +38,7 @@ def main() -> None:
         while viewer.is_running():
             img = sim.render_camera_bgr()
             v = fsm.step(sim, img)
-
+            print(fsm.phase)
             if fsm.phase == Phase.RELEASE:
                 fsm.finish_release(sim)
                 sim.physics_step_hold()

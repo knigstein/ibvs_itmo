@@ -45,7 +45,7 @@ class IBVS:
         if active_directions is None:
             active_directions = [0, 1, 2, 3, 4, 5]
         if control_coefficient is None:
-            control_coefficient = [0.1, 0.1, 0.1, 0.5, 0.5, 0.5]
+            control_coefficient = [0.3, 0.3, 0.3, 0.5, 0.5, 0.5]
         self._control_coefficient = np.asarray(control_coefficient, dtype=float).reshape(6)
         self._active_directions = np.sort(np.asarray(active_directions, dtype=int))
         self._exit_treshhold = exit_treshhold

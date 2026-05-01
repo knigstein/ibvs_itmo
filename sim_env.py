@@ -81,6 +81,7 @@ class MuJoCoArmSim:
     def physics_step_ibvs(self, v_cam: np.ndarray) -> None:
         v_cam = np.asarray(v_cam, dtype=float).reshape(6)
         self.controller.run_vel_camera_ibvs(v_cam, self.cam_site_id)
+        print(self.data)
         mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 

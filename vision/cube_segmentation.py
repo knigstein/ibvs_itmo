@@ -7,13 +7,11 @@ from typing import Any, Dict, Optional
 import cv2
 import numpy as np
 
-
 @dataclass
 class CubeSegmentationResult:
     corners: Optional[np.ndarray]
     ok: bool
     meta: Dict[str, Any] = field(default_factory=dict)
-
 
 def _order_corners(pts: np.ndarray) -> np.ndarray:
     pts = np.asarray(pts, dtype=np.float32).reshape(4, 2)
@@ -34,6 +32,7 @@ def _order_corners(pts: np.ndarray) -> np.ndarray:
 class CubeSegmenter:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         cfg = config or {}
+        self._counter = 0
         self._hsv_lower = np.array(cfg.get("hsv_lower", [5, 50, 40]), dtype=np.uint8)
         self._hsv_upper = np.array(cfg.get("hsv_upper", [35, 255, 255]), dtype=np.uint8)
         self._blur_ksize = int(cfg.get("blur_ksize", 5)) | 1
@@ -48,7 +47,7 @@ class CubeSegmenter:
     def detect(self, bgr: np.ndarray) -> CubeSegmentationResult:
         if bgr is None or bgr.size == 0:
             return CubeSegmentationResult(None, False, {"reason": "empty"})
-
+        
         blurred = cv2.GaussianBlur(bgr, (self._blur_ksize, self._blur_ksize), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self._hsv_lower, self._hsv_upper)
@@ -71,6 +70,10 @@ class CubeSegmenter:
         rect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rect)
         corners = _order_corners(box.astype(np.float32))
+
+        cv2.imwrite(f'camera_feed/output_{self._counter}.jpg', mask)
+        self._counter = self._counter + 1 if self._counter < 10 else 0
+        print(f"Saved camera feed image to camera_feed/output_{self._counter}.jpg")
 
         if self._ema_alpha > 0.0 and self._corners_ema is not None:
             corners = self._ema_alpha * corners + (1.0 - self._ema_alpha) * self._corners_ema
