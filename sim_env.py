@@ -23,11 +23,18 @@ class MuJoCoArmSim:
     ):
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
-        self.renderer = mujoco.Renderer(self.model, height=480, width=640)
 
         cfg = robot_cfg or {}
         cam = camera_cfg or {}
         self._render_camera = str(cam.get("mujoco_camera") or "real_sense")
+        self._render_width = int(cam.get("render_width", 320))
+        self._render_height = int(cam.get("render_height", 240))
+        self._image_width = int(cam.get("image_width", self._render_width))
+        self._image_height = int(cam.get("image_height", self._render_height))
+        self._render_scale_x = float(self._image_width / self._render_width)
+        self._render_scale_y = float(self._image_height / self._render_height)
+
+        self.renderer = mujoco.Renderer(self.model, height=self._render_height, width=self._render_width)
 
         self.joint_names: List[str] = [
             "shoulder_pan_joint",
@@ -141,14 +148,27 @@ class MuJoCoArmSim:
         rgb = self.renderer.render()
         return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
-    def physics_step_ibvs(self, v_cam: np.ndarray) -> None:
+    def scale_render_corners(self, corners: np.ndarray) -> np.ndarray:
+        if corners is None:
+            return corners
+        scale = np.array([self._render_scale_x, self._render_scale_y], dtype=float)
+        return corners * scale
+
+    def _physics_steps(self, dt: Optional[float] = None) -> int:
+        if dt is None:
+            return 1
+        step = float(self.model.opt.timestep)
+        return max(1, int(np.ceil(dt / step)))
+
+    def physics_step_ibvs(self, v_cam: np.ndarray, n_steps: int = 1) -> None:
         self._apply_gripper_ctrl()
         v_cam = np.asarray(v_cam, dtype=float).reshape(6)
         self.controller.run_vel_camera_ibvs(v_cam, self.cam_site_id)
-        mujoco.mj_step(self.model, self.data)
+        for _ in range(n_steps):
+            mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
-    def physics_step_joint(self, q_des: np.ndarray) -> None:
+    def physics_step_joint(self, q_des: np.ndarray, n_steps: int = 1) -> None:
         self._apply_gripper_ctrl()
         q_des = np.asarray(q_des, dtype=float).reshape(6)
         q = self.data.qpos[self._jnt_dof_ids].copy()
@@ -157,13 +177,15 @@ class MuJoCoArmSim:
         tau += self.data.qfrc_bias[self._jnt_dof_ids]
         tau = np.clip(tau, -150.0, 150.0)
         self.data.qfrc_applied[:6] = tau
-        mujoco.mj_step(self.model, self.data)
+        for _ in range(n_steps):
+            mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
-    def physics_step_hold(self) -> None:
+    def physics_step_hold(self, n_steps: int = 1) -> None:
         self._apply_gripper_ctrl()
         self.data.qfrc_applied[:6] = 0.0
-        mujoco.mj_step(self.model, self.data)
+        for _ in range(n_steps):
+            mujoco.mj_step(self.model, self.data)
         self._update_telemetry()
 
     def _update_telemetry(self) -> None:

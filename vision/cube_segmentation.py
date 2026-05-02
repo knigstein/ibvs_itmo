@@ -39,6 +39,7 @@ class CubeSegmenter:
         self._min_area = float(cfg.get("min_area", 400.0))
         self._ema_alpha = float(cfg.get("ema_alpha", 0.35))
         self._corners_ema: Optional[np.ndarray] = None
+        self._kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (max(3, self._morph_ksize), max(3, self._morph_ksize)))
 
     def reset_smoothing(self) -> None:
         self._corners_ema = None
@@ -50,10 +51,8 @@ class CubeSegmenter:
         blurred = cv2.GaussianBlur(bgr, (self._blur_ksize, self._blur_ksize), 0)
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self._hsv_lower, self._hsv_upper)
-        k = max(3, self._morph_ksize)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self._kernel, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel, iterations=1)
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         meta: Dict[str, Any] = {"n_contours": len(contours)}
@@ -69,10 +68,6 @@ class CubeSegmenter:
         rect = cv2.minAreaRect(c)
         box = cv2.boxPoints(rect)
         corners = _order_corners(box.astype(np.float32))
-
-        cv2.imwrite(f'camera_feed/output_{self._counter}.jpg', mask)
-        self._counter = self._counter + 1 if self._counter < 10 else 0
-        print(f"Saved camera feed image to camera_feed/output_{self._counter}.jpg")
 
         if self._ema_alpha > 0.0 and self._corners_ema is not None:
             corners = self._ema_alpha * corners + (1.0 - self._ema_alpha) * self._corners_ema

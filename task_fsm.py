@@ -118,6 +118,8 @@ class PickPlaceFSM:
     ) -> np.ndarray:
         seg = self.segmenter.detect(img_bgr)
         seg_ok = bool(seg.ok and seg.corners is not None)
+        if seg_ok and hasattr(sim, "scale_render_corners"):
+            seg.corners = sim.scale_render_corners(seg.corners)
         v = np.zeros(6, dtype=float)
 
         if self.phase in (Phase.IDLE, Phase.DONE):
@@ -157,8 +159,9 @@ class PickPlaceFSM:
             self._note_visibility(True)
             Z = self._ibvs_Z(seg.corners, depth_m)
             v_c, e, _ = self.ibvs.step(seg.corners, Z)
+            e_norm = np.linalg.norm(e)
             thr = self.ibvs.exit_threshold * self._final_scale
-            if float(np.linalg.norm(e)) < thr:
+            if float(e_norm) < thr:
                 self._align_count += 1
             else:
                 self._align_count = 0

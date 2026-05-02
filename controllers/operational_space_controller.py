@@ -47,6 +47,9 @@ class OperationalSpaceController(JointEffortController):
         self._jnt_dof_ids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
                           for name in joints]
         self._dof = len(self._jnt_dof_ids)
+        self._jacp = np.zeros((3, self._model.nv), dtype=np.float64)
+        self._jacr = np.zeros((3, self._model.nv), dtype=np.float64)
+        self._M_full = np.zeros((self._model.nv, self._model.nv), dtype=np.float64)
 
         self._task_space_gains = np.array([self._kp] * 3 + [self._ko] * 3)
         self._lamb = self._task_space_gains / self._kv
@@ -61,16 +64,19 @@ class OperationalSpaceController(JointEffortController):
 
         # Get the Jacobian matrix for the end-effector.
         J = get_site_jac(
-            self._model, 
-            self._data, 
+            self._model,
+            self._data,
             self._eef_id,
+            self._jacp,
+            self._jacr,
         )
         J = J[:, self._jnt_dof_ids]
 
         # Get the mass matrix and its inverse for the controlled degrees of freedom (DOF) of the robot.
         M_full = get_fullM(
-            self._model, 
+            self._model,
             self._data,
+            self._M_full,
         )
         M = M_full[self._jnt_dof_ids, :][:, self._jnt_dof_ids]
         Mx, M_inv = task_space_inertia_matrix(M, J)
@@ -115,16 +121,19 @@ class OperationalSpaceController(JointEffortController):
 
         # Get the Jacobian matrix for the end-effector.
         J = get_site_jac(
-            self._model, 
-            self._data, 
+            self._model,
+            self._data,
             self._eef_id,
+            self._jacp,
+            self._jacr,
         )
         J = J[:, self._jnt_dof_ids]
 
 
         M_full = get_fullM(
-            self._model, 
+            self._model,
             self._data,
+            self._M_full,
         )
         M = M_full[self._jnt_dof_ids, :][:, self._jnt_dof_ids]
         Mx, M_inv = task_space_inertia_matrix(M, J)
@@ -132,7 +141,13 @@ class OperationalSpaceController(JointEffortController):
         # Get the joint velocities for the controlled DOF.
         dq = self._data.qvel[self._jnt_dof_ids].copy()
 
-        dq_des = np.linalg.pinv(J) @ target_speed
+        if J.shape[0] == J.shape[1]:
+            try:
+                dq_des = np.linalg.solve(J, target_speed)
+            except np.linalg.LinAlgError:
+                dq_des = np.linalg.pinv(J) @ target_speed
+        else:
+            dq_des = np.linalg.pinv(J) @ target_speed
 
         # # Initialize the task space control signal (desired end-effector motion).
         # u_task = np.zeros(6)
@@ -181,12 +196,18 @@ class OperationalSpaceController(JointEffortController):
     def run_vel_world(self, twist_world: np.ndarray, site_id: int) -> None:
         """Желаемый винт в мире в точке site_id; mj_jacSite согласован с twist_world."""
         target_speed = np.asarray(twist_world, dtype=float).reshape(6)
-        J = get_site_jac(self._model, self._data, site_id)
+        J = get_site_jac(self._model, self._data, site_id, self._jacp, self._jacr)
         J = J[:, self._jnt_dof_ids]
-        M_full = get_fullM(self._model, self._data)
+        M_full = get_fullM(self._model, self._data, self._M_full)
         M = M_full[self._jnt_dof_ids, :][:, self._jnt_dof_ids]
         dq = self._data.qvel[self._jnt_dof_ids].copy()
-        dq_des = np.linalg.pinv(J) @ target_speed
+        if J.shape[0] == J.shape[1]:
+            try:
+                dq_des = np.linalg.solve(J, target_speed)
+            except np.linalg.LinAlgError:
+                dq_des = np.linalg.pinv(J) @ target_speed
+        else:
+            dq_des = np.linalg.pinv(J) @ target_speed
         u = self._kv * M @ (dq_des - dq)
         u += self._data.qfrc_bias[self._jnt_dof_ids]
         super().run(u)

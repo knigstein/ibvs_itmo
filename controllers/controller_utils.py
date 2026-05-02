@@ -24,17 +24,18 @@ def task_space_inertia_matrix(M, J, threshold=1e-3):
     """
 
     # calculate the inertia matrix in task space
-    M_inv = np.linalg.inv(M)
-    Mx_inv = np.dot(J, np.dot(M_inv, J.T))
+    # Use solve instead of full inverse when possible to reduce overhead.
+    M_inv_JT = np.linalg.solve(M, J.T)
+    Mx_inv = J.dot(M_inv_JT)
     if abs(np.linalg.det(Mx_inv)) >= threshold:
-        # do the linalg inverse if matrix is non-singular
-        # because it's faster and more accurate
-        Mx = np.linalg.inv(Mx_inv)
+        # do the linalg solve if matrix is non-singular because it is faster and more accurate
+        Mx = np.linalg.solve(Mx_inv, np.eye(Mx_inv.shape[0], dtype=Mx_inv.dtype))
     else:
         # using the rcond to set singular values < thresh to 0
         # singular values < (rcond * max(singular_values)) set to 0
         Mx = np.linalg.pinv(Mx_inv, rcond=threshold * 0.1)
 
+    M_inv = np.linalg.inv(M)
     return Mx, M_inv
 
 def orientation_error(desired, current):

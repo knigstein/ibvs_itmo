@@ -46,7 +46,9 @@ def main() -> None:
     robot_cfg = load_robot_config()
     sim = MuJoCoArmSim(model_path=os.path.join(model_dir, "IBVS_Scene.xml"), robot_cfg=robot_cfg)
 
-    dt = 0.01
+    dt = float(robot_cfg.get("control_dt", 0.01))
+    sync_realtime = bool(robot_cfg.get("sync_realtime", False))
+    physics_steps = sim._physics_steps(dt)
     v_lin = 0.08
     v_ang = 0.35
     lin_scale = 1.0
@@ -59,6 +61,7 @@ def main() -> None:
 
     with mujoco.viewer.launch_passive(sim.model, sim.data) as viewer:
         while viewer.is_running():
+            frame_start = time.time()
             img = sim.render_camera_bgr()
             cv2.putText(
                 img,
@@ -118,9 +121,12 @@ def main() -> None:
             elif key == ord("q") or key == 27:
                 break
 
-            sim.physics_step_ibvs(v_cmd)
+            sim.physics_step_ibvs(v_cmd, physics_steps)
             viewer.sync()
-            time.sleep(dt)
+            if sync_realtime:
+                elapsed = time.time() - frame_start
+                if elapsed < dt:
+                    time.sleep(dt - elapsed)
 
     cv2.destroyAllWindows()
 
