@@ -79,11 +79,12 @@ def triangulate_points_cam1_frame(
 
 def _points_cam1_to_cam2(X1: np.ndarray, T_w_c1: np.ndarray, T_w_c2: np.ndarray) -> np.ndarray:
     """X1 (N×3) в первой камере → X2 (N×3) во второй (текущей)."""
-    N = X1.shape[0]
-    hom = np.hstack([X1, np.ones((N, 1))])
-    T_c2_w = np.linalg.inv(T_w_c2)
-    out = (T_c2_w @ (T_w_c1 @ hom.T)).T[:, :3]
-    return out
+    R1 = T_w_c1[:3, :3]
+    t1 = T_w_c1[:3, 3]
+    R2 = T_w_c2[:3, :3]
+    t2 = T_w_c2[:3, 3]
+    X2 = (R2.T @ ((R1 @ X1.T) + t1[:, None] - t2[:, None])).T
+    return X2
 
 
 def _fit_plane(points: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -97,11 +98,9 @@ def _fit_plane(points: np.ndarray) -> Tuple[np.ndarray, float]:
 
 
 def dense_depth_z_from_plane(
-    K_inv: np.ndarray,
+    dirs: np.ndarray,
     plane_n: np.ndarray,
     plane_d: float,
-    height: int,
-    width: int,
     z_min: float,
     z_max: float,
 ) -> np.ndarray:
@@ -109,14 +108,12 @@ def dense_depth_z_from_plane(
     Для каждого пикселя луч o + λ d, d = K^{-1}[u,v,1]; пересечение с n·x = plane_d.
     Z = (λ d)_z. OpenCV / IBVS: ось Z вперёд от камеры.
     """
-    u, v = np.meshgrid(np.arange(width, dtype=np.float64), np.arange(height, dtype=np.float64))
-    hom = np.stack([u.ravel(), v.ravel(), np.ones(width * height, dtype=np.float64)], axis=0)
-    dirs = (K_inv @ hom).T.reshape(height, width, 3)
     denom = dirs @ plane_n
-    lam = np.full((height, width), np.nan, dtype=np.float64)
-    m = np.abs(denom) > 1e-9
-    lam[m] = plane_d / denom[m]
-    pts_z = (lam[..., None] * dirs)[..., 2]
+    lam = np.full(denom.shape, np.nan, dtype=np.float64)
+    mask = np.abs(denom) > 1e-9
+    lam[mask] = plane_d / denom[mask]
+    pts_z = lam[..., None] * dirs
+    pts_z = pts_z[..., 2]
     pts_z = np.where((lam > 0) & (pts_z > z_min) & (pts_z < z_max), pts_z, np.nan)
     return pts_z
 
@@ -144,6 +141,10 @@ class OneCameraTwoPoseSfM:
         self._z_min = float(z_min)
         self._z_max = float(z_max)
         self._prev: Optional[Tuple[np.ndarray, np.ndarray]] = None
+
+        u, v = np.meshgrid(np.arange(self._W, dtype=np.float64), np.arange(self._H, dtype=np.float64))
+        hom = np.stack([u.ravel(), v.ravel(), np.ones(self._H * self._W, dtype=np.float64)], axis=0)
+        self._dirs = (self._Kinv @ hom).T.reshape(self._H, self._W, 3)
 
     def reset(self) -> None:
         self._prev = None
@@ -186,7 +187,7 @@ class OneCameraTwoPoseSfM:
 
         n, d = _fit_plane(X2)
         depth_m = dense_depth_z_from_plane(
-            self._Kinv, n, d, self._H, self._W, self._z_min, self._z_max
+            self._dirs, n, d, self._z_min, self._z_max
         )
         self._prev = (uv2.copy(), T_w_cur.copy())
         return depth_m

@@ -63,15 +63,20 @@ def main() -> None:
             z_max=float(dcfg.get("z_max_m", 2.5)),
         )
 
-    dt = 0.01
+    dt = float(robot_cfg.get("control_dt", 0.01))
+    sync_realtime = bool(robot_cfg.get("sync_realtime", False))
+    physics_steps = sim._physics_steps(dt)
     with mujoco.viewer.launch_passive(sim.model, sim.data) as viewer:
         while viewer.is_running():
+            frame_start = time.time()
             img = sim.render_camera_bgr()
             depth_m = None
             if sfm is not None:
                 T_w_c = sim.camera_T_w_c()
                 seg_sfm = segmenter.detect(img)
                 corners = seg_sfm.corners if seg_sfm.ok else None
+                if corners is not None:
+                    corners = sim.scale_render_corners(corners)
                 depth_m = sfm.update(corners, T_w_c)
             v = fsm.step(sim, img, depth_m=depth_m)
 
@@ -83,20 +88,23 @@ def main() -> None:
             if fsm.phase == Phase.TRANSPORT:
                 q_tgt = fsm.joint_target_for_transport(sim, dt)
                 if q_tgt is not None:
-                    sim.physics_step_joint(q_tgt)
+                    sim.physics_step_joint(q_tgt, physics_steps)
             elif fsm.phase == Phase.SEARCH:
                 q_s = fsm.joint_target_for_search(sim, dt)
                 if q_s is not None:
-                    sim.physics_step_joint(q_s)
+                    sim.physics_step_joint(q_s, physics_steps)
             elif fsm.phase == Phase.GRASP_CLOSE:
-                sim.physics_step_ibvs(v)
+                sim.physics_step_ibvs(v, physics_steps)
             elif fsm.phase in (Phase.IBVS_APPROACH, Phase.FINAL_ALIGN):
-                sim.physics_step_ibvs(v)
+                sim.physics_step_ibvs(v, physics_steps)
             else:
-                sim.physics_step_hold()
+                sim.physics_step_hold(physics_steps)
 
             viewer.sync()
-            time.sleep(dt)
+            if sync_realtime:
+                elapsed = time.time() - frame_start
+                if elapsed < dt:
+                    time.sleep(dt - elapsed)
 
 
 if __name__ == "__main__":

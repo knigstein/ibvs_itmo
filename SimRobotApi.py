@@ -71,11 +71,11 @@ class UniversalRobotAPI(threading.Thread):
             try:
 
                 while viewer.is_running() and not self.__stopped[0]:
-                    mujoco.mj_step(self.__model, self.__data)
-                    viewer.sync()
                     self.__controller.run_vel_camera_ibvs(
                         self.__desired_vel, self.__cam_site_id
                     )
+                    mujoco.mj_step(self.__model, self.__data)
+                    viewer.sync()
                     # time.sleep(0.01)
 
             except KeyboardInterrupt:

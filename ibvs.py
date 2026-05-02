@@ -69,18 +69,21 @@ class IBVS:
 
         self._s_desired = self._stack_normalized(self._features_desired_positions)
 
+    def _normalize_points(self, features_pixel: np.ndarray) -> np.ndarray:
+        '''Переводит массив пикселей (n×2) в нормализованные координаты (n×2).'''
+        features_pixel = np.asarray(features_pixel, dtype=float).reshape(-1, 2)
+        if features_pixel.shape[1] != 2:
+            raise ValueError("Ожидается массив формы (n, 2) или (2,)")
+        fx, fy = self._focal_length
+        cx, cy = self._principal_point
+        x = (features_pixel[:, 0] - cx) / fx
+        y = (features_pixel[:, 1] - cy) / fy
+        return np.stack([x, y], axis=1)
+
     def _stack_normalized(self, features_pixel: np.ndarray) -> np.ndarray:
         '''Собирает вектор длины 2n: для каждой точки пара нормализованных координат (x, y).'''
-        features_pixel = np.asarray(features_pixel, dtype=float)
-        if features_pixel.ndim == 1:
-            features_pixel = features_pixel.reshape(1, -1)
-        n = features_pixel.shape[0]
-        s = np.zeros(2 * n, dtype=float)
-        for i in range(n):
-            x, y = self.normalize(features_pixel[i])
-            s[2 * i] = x
-            s[2 * i + 1] = y
-        return s
+        points = self._normalize_points(features_pixel)
+        return points.reshape(-1)
 
     @property
     def active_directions(self) -> np.ndarray:
@@ -172,11 +175,11 @@ class IBVS:
         if Z.shape != (n,):
             raise ValueError("Z должна быть скаляром или массивом длины n")
 
-        rows = []
-        for i in range(n):
-            x, y = self.normalize(features_current_positions[i])
-            rows.append(self.calculate_interaction_matrix(x, y, float(Z[i])))
-        return np.vstack(rows)
+        points = self._normalize_points(features_current_positions)
+        L = np.zeros((2 * n, 6), dtype=float)
+        for i, (x, y) in enumerate(points):
+            L[2 * i : 2 * i + 2, :] = self.calculate_interaction_matrix(x, y, float(Z[i]))
+        return L
 
     def _damped_pinv(self, A: np.ndarray) -> np.ndarray:
         '''Демпфированное псевдообращение для связи v = −A⁺ e (регуляризация Тихонова).

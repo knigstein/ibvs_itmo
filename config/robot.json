@@ -4,6 +4,8 @@
   "grasp_site_for_distance": "gripper_2f85_pinch",
   "target_geom_for_distance": "small_cube_geom",
   "grasp_distance": 0.14,
+  "control_dt": 0.01,
+  "sync_realtime": false,
   "final_align_error_scale": 0.85,
   "align_hold_steps": 8,
   "place_joint_q": [1.5708, -1.5708, 1.2, -1.0, -1.5708, 0.0],
